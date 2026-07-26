@@ -11,11 +11,14 @@ from models.embedding import (
     TokenEmbedding,
 )
 from models.gpt import GPT
+from models.inference import GPTGenerator, sample_next_token
 from models.layers import FeedForward, LayerNorm, TransformerBlock
 
 __all__ = [
     "GPT",
     "GPTConfig",
+    "GPTGenerator",
+    "sample_next_token",
     "TokenEmbedding",
     "PositionalEmbedding",
     "SinusoidalPositionalEmbedding",
@@ -27,6 +30,7 @@ __all__ = [
     "LayerNorm",
     "TransformerBlock",
 ]
+
 
 
 
