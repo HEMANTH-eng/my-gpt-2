@@ -9,7 +9,7 @@ from models.embedding import (
     SinusoidalPositionalEmbedding,
     TokenEmbedding,
 )
-from models.layers import FeedForward
+from models.layers import FeedForward, LayerNorm, TransformerBlock
 
 __all__ = [
     "TokenEmbedding",
@@ -20,7 +20,10 @@ __all__ = [
     "SingleHeadCausalSelfAttention",
     "MultiHeadCausalAttention",
     "FeedForward",
+    "LayerNorm",
+    "TransformerBlock",
 ]
+
 
 
 

@@ -265,5 +265,68 @@ def test_feed_forward_dimension_error():
         ff(x)
 
 
+from models.layers import LayerNorm, TransformerBlock
+
+
+def test_layer_norm():
+    batch_size, seq_len, d_model = 2, 10, 64
+    x = torch.randn(batch_size, seq_len, d_model) * 5 + 3
+
+    ln = LayerNorm(normalized_shape=d_model)
+    out = ln(x)
+
+    assert out.shape == (batch_size, seq_len, d_model)
+    # Check normalized zero mean and unit variance per feature dimension
+    assert torch.allclose(out.mean(dim=-1), torch.zeros(batch_size, seq_len), atol=1e-4)
+    assert torch.allclose(out.std(dim=-1, unbiased=False), torch.ones(batch_size, seq_len), atol=1e-3)
+
+
+
+def test_transformer_block_shape():
+    batch_size, seq_len, d_model, n_head = 3, 16, 64, 4
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    block = TransformerBlock(d_model=d_model, n_head=n_head)
+    out = block(x)
+    assert out.shape == (batch_size, seq_len, d_model)
+
+    out_with_weights, attn_weights = block(x, return_attn_weights=True)
+    assert out_with_weights.shape == (batch_size, seq_len, d_model)
+    assert attn_weights.shape == (batch_size, n_head, seq_len, seq_len)
+
+
+def test_transformer_block_stacking():
+    batch_size, seq_len, d_model, n_head, num_layers = 2, 12, 64, 4, 4
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    blocks = torch.nn.ModuleList([
+        TransformerBlock(d_model=d_model, n_head=n_head)
+        for _ in range(num_layers)
+    ])
+
+    h = x
+    for block in blocks:
+        h = block(h)
+
+    assert h.shape == (batch_size, seq_len, d_model)
+
+
+def test_transformer_block_gradient_flow():
+    batch_size, seq_len, d_model, n_head = 2, 8, 32, 4
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    block = TransformerBlock(d_model=d_model, n_head=n_head)
+    out = block(x)
+
+    loss = out.sum()
+    loss.backward()
+
+    assert block.ln_1.weight.grad is not None
+    assert block.ln_2.weight.grad is not None
+    assert block.attn.q_proj.weight.grad is not None
+    assert block.mlp.c_fc.weight.grad is not None
+
+
+
 
 
