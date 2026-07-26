@@ -327,6 +327,103 @@ def test_transformer_block_gradient_flow():
     assert block.mlp.c_fc.weight.grad is not None
 
 
+from config.model_config import GPTConfig
+from models.gpt import GPT
+
+
+def test_gpt_forward_pass_shapes():
+    config = GPTConfig.gpt_micro(vocab_size=500)
+    model = GPT(config)
+
+    batch_size, seq_len = 2, 16
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+
+    logits, loss = model(idx)
+
+    assert logits.shape == (batch_size, seq_len, config.vocab_size)
+    assert loss is None
+
+
+def test_gpt_loss_calculation():
+    config = GPTConfig.gpt_micro(vocab_size=300)
+    model = GPT(config)
+
+    batch_size, seq_len = 2, 16
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    targets = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+
+    logits, loss = model(idx, targets=targets)
+
+    assert logits.shape == (batch_size, seq_len, config.vocab_size)
+    assert loss is not None
+    assert loss.dim() == 0
+    assert loss.item() > 0
+
+
+def test_gpt_weight_tying():
+    config = GPTConfig.gpt_micro(vocab_size=400)
+
+    # Model with weight tying enabled
+    config.weight_tying = True
+    model_tied = GPT(config)
+    assert model_tied.lm_head.weight.data_ptr() == model_tied.embedding.token_embedding.embedding.weight.data_ptr()
+
+    # Model with weight tying disabled
+    config.weight_tying = False
+    model_untied = GPT(config)
+    assert model_untied.lm_head.weight.data_ptr() != model_untied.embedding.token_embedding.embedding.weight.data_ptr()
+
+
+def test_gpt_configurable_depth_and_heads():
+    config = GPTConfig(
+        vocab_size=200,
+        max_seq_len=64,
+        n_layer=6,
+        n_head=8,
+        d_model=128,
+    )
+    model = GPT(config)
+
+    assert len(model.blocks) == 6
+    assert model.blocks[0].attn.n_head == 8
+    assert model.blocks[0].attn.d_head == 16
+
+
+def test_gpt_autoregressive_generation():
+    config = GPTConfig.gpt_micro(vocab_size=250)
+    model = GPT(config)
+    model.eval()
+
+    prompt = torch.randint(0, config.vocab_size, (1, 4))  # (B=1, T=4)
+    max_new_tokens = 8
+
+    generated = model.generate(prompt, max_new_tokens=max_new_tokens, temperature=0.8, top_k=10)
+
+    assert generated.shape == (1, 4 + max_new_tokens)
+    assert torch.equal(generated[:, :4], prompt)
+
+
+def test_gpt_backward_pass_and_optimizer():
+    config = GPTConfig.gpt_micro(vocab_size=300)
+    model = GPT(config)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+    idx = torch.randint(0, config.vocab_size, (2, 8))
+    targets = torch.randint(0, config.vocab_size, (2, 8))
+
+    optimizer.zero_grad()
+    _, loss = model(idx, targets=targets)
+    loss.backward()
+    optimizer.step()
+
+    # Verify gradients computed across all key layers
+    assert model.embedding.token_embedding.embedding.weight.grad is not None
+    assert model.blocks[0].attn.q_proj.weight.grad is not None
+    assert model.blocks[0].mlp.c_fc.weight.grad is not None
+    assert model.ln_f.weight.grad is not None
+
+
+
 
 
 
