@@ -154,3 +154,56 @@ def test_single_head_causal_self_attention_forward_grad():
     assert sa.out_proj.weight.grad is not None
 
 
+from models.attention import MultiHeadCausalAttention
+
+
+def test_multi_head_causal_attention_shapes():
+    batch_size, seq_len, d_model, n_head = 2, 32, 768, 12
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    mha = MultiHeadCausalAttention(d_model=d_model, n_head=n_head)
+    out = mha(x)
+    assert out.shape == (batch_size, seq_len, d_model)
+
+    out_with_weights, attn_weights = mha(x, return_attn_weights=True)
+    assert out_with_weights.shape == (batch_size, seq_len, d_model)
+    assert attn_weights.shape == (batch_size, n_head, seq_len, seq_len)
+
+
+def test_multi_head_invalid_dimension_error():
+    with pytest.raises(ValueError):
+        MultiHeadCausalAttention(d_model=100, n_head=3)  # 100 % 3 != 0
+
+
+def test_multi_head_causal_masking():
+    batch_size, seq_len, d_model, n_head = 2, 8, 64, 4
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    mha = MultiHeadCausalAttention(d_model=d_model, n_head=n_head)
+    _, attn_weights = mha(x, return_attn_weights=True)
+
+    # For all batches b, heads h, and positions j > i, attn_weights[b, h, i, j] must be 0.0
+    for b in range(batch_size):
+        for h in range(n_head):
+            for i in range(seq_len):
+                for j in range(i + 1, seq_len):
+                    assert attn_weights[b, h, i, j].item() == 0.0
+
+
+def test_multi_head_gradient_flow():
+    batch_size, seq_len, d_model, n_head = 3, 16, 128, 8
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    mha = MultiHeadCausalAttention(d_model=d_model, n_head=n_head)
+    out = mha(x)
+
+    loss = out.sum()
+    loss.backward()
+
+    assert mha.q_proj.weight.grad is not None
+    assert mha.k_proj.weight.grad is not None
+    assert mha.v_proj.weight.grad is not None
+    assert mha.out_proj.weight.grad is not None
+
+
+

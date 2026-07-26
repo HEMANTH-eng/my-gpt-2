@@ -1,4 +1,8 @@
-from models.attention import ScaledDotProductAttention, SingleHeadCausalSelfAttention
+from models.attention import (
+    MultiHeadCausalAttention,
+    ScaledDotProductAttention,
+    SingleHeadCausalSelfAttention,
+)
 from models.embedding import (
     GPTEmbedding,
     PositionalEmbedding,
@@ -13,6 +17,8 @@ __all__ = [
     "GPTEmbedding",
     "ScaledDotProductAttention",
     "SingleHeadCausalSelfAttention",
+    "MultiHeadCausalAttention",
 ]
+
 
 
