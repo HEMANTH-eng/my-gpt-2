@@ -1,0 +1,10 @@
+# Git ignore rules
+.venv/
+__pycache__/
+*.pyc
+*.pt
+*.bin
+*.log
+runs/
+checkpoints/
+.pytest_cache/
