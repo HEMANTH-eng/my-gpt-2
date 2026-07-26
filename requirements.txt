@@ -3,3 +3,7 @@ numpy
 tqdm
 pytest
 pyyaml
+fastapi
+uvicorn
+httpx
+
