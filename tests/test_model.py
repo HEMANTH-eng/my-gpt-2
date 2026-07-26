@@ -206,4 +206,64 @@ def test_multi_head_gradient_flow():
     assert mha.out_proj.weight.grad is not None
 
 
+from models.layers import FeedForward
+
+
+def test_feed_forward_shape():
+    batch_size, seq_len, d_model = 4, 16, 128
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    ff = FeedForward(d_model=d_model)
+    out = ff(x)
+
+    assert out.shape == (batch_size, seq_len, d_model)
+    assert ff.c_fc.out_features == 4 * d_model
+
+
+def test_feed_forward_custom_d_ff():
+    batch_size, seq_len, d_model, d_ff = 2, 8, 64, 256
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    ff = FeedForward(d_model=d_model, d_ff=d_ff)
+    out = ff(x)
+
+    assert out.shape == (batch_size, seq_len, d_model)
+    assert ff.c_fc.out_features == d_ff
+
+
+def test_feed_forward_residual():
+    batch_size, seq_len, d_model = 2, 10, 32
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    ff = FeedForward(d_model=d_model, dropout=0.0)
+    out_no_res = ff(x, residual=False)
+    out_res = ff(x, residual=True)
+
+    assert torch.allclose(out_res, x + out_no_res, atol=1e-6)
+
+
+def test_feed_forward_gradient_flow():
+    batch_size, seq_len, d_model = 3, 12, 64
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    ff = FeedForward(d_model=d_model)
+    out = ff(x)
+
+    loss = out.sum()
+    loss.backward()
+
+    assert ff.c_fc.weight.grad is not None
+    assert ff.c_proj.weight.grad is not None
+    assert ff.c_fc.bias.grad is not None
+    assert ff.c_proj.bias.grad is not None
+
+
+def test_feed_forward_dimension_error():
+    x = torch.randn(2, 10, 32)  # d_model=32 mismatch with d_model=64
+    ff = FeedForward(d_model=64)
+    with pytest.raises(ValueError):
+        ff(x)
+
+
+
 

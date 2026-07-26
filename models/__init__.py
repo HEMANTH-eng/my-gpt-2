@@ -9,6 +9,7 @@ from models.embedding import (
     SinusoidalPositionalEmbedding,
     TokenEmbedding,
 )
+from models.layers import FeedForward
 
 __all__ = [
     "TokenEmbedding",
@@ -18,7 +19,9 @@ __all__ = [
     "ScaledDotProductAttention",
     "SingleHeadCausalSelfAttention",
     "MultiHeadCausalAttention",
+    "FeedForward",
 ]
+
 
 
 
