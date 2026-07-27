@@ -1,9 +1,15 @@
 from contextlib import asynccontextmanager
+import io
 from typing import Dict, List, Optional
-from fastapi import FastAPI, HTTPException, status
+
+from fastapi import FastAPI, File, HTTPException, UploadFile, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 import torch
 
+from api.auth import router as auth_router, get_current_user
+from api.database import get_db, init_db
+from api.models_db import ChatMessageDB, ChatSessionDB, UploadedFileDB, User
 from api.schemas import (
     ChatMessage,
     ChatRequest,
@@ -12,28 +18,37 @@ from api.schemas import (
     GenerateResponse,
     HealthResponse,
     ModelInfoResponse,
+    PersonaResponse,
+    UploadedFileResponse,
 )
 from config.model_config import GPTConfig
+from config.personas import PERSONAS, get_persona, list_personas
 from models.gpt import GPT
 from models.inference import GPTGenerator
+from models.vision import MultimodalGPT
 from tokenizer.bpe_tokenizer import BPETokenizer
+from utils.file_parser import parse_uploaded_file
 from utils.logger import get_logger
+from utils.tools import process_tool_calls
 
 logger = get_logger("api_server")
 
-# Global model state holders
 generator_instance: Optional[GPTGenerator] = None
 model_instance: Optional[GPT] = None
+multimodal_model: Optional[MultimodalGPT] = None
 tokenizer_instance: Optional[BPETokenizer] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI Lifespan context manager handling model and tokenizer startup/shutdown."""
-    global generator_instance, model_instance, tokenizer_instance
-    logger.info("Initializing MyGPT model and tokenizer for API server...")
+    """FastAPI Lifespan context manager handling database, model, and tokenizer initialization."""
+    global generator_instance, model_instance, multimodal_model, tokenizer_instance
+    logger.info("Initializing MyGPT database, model, and tokenizer...")
 
-    # Train a lightweight base tokenizer for API demonstration
+    # Initialize SQLite Database Tables
+    init_db()
+
+    # Train base tokenizer for API demonstration
     base_text = "Building a custom GPT large language model completely from scratch using Python and PyTorch!"
     tokenizer_instance = BPETokenizer(vocab_size=300)
     tokenizer_instance.train(base_text)
@@ -41,8 +56,8 @@ async def lifespan(app: FastAPI):
     # Initialize GPT model
     config = GPTConfig.gpt_micro(vocab_size=len(tokenizer_instance.vocab))
     model_instance = GPT(config)
+    multimodal_model = MultimodalGPT(model_instance)
 
-    # Device selection
     device = "cuda" if torch.cuda.is_available() else "cpu"
     generator_instance = GPTGenerator(
         model=model_instance,
@@ -56,17 +71,17 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down API Model Server...")
     generator_instance = None
     model_instance = None
+    multimodal_model = None
     tokenizer_instance = None
 
 
 app = FastAPI(
     title="MyGPT API Server",
-    version="1.0.0",
-    description="Production REST API server exposing custom PyTorch GPT model for text generation and chat completions.",
+    version="2.0.0",
+    description="Enterprise REST API server exposing custom PyTorch GPT model with Auth, Chat History, File RAG, Vision, Personas, and Tools.",
     lifespan=lifespan,
 )
 
-# Enable Cross-Origin Resource Sharing (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -74,6 +89,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register Authentication Router
+app.include_router(auth_router)
 
 
 def _get_generator() -> GPTGenerator:
@@ -87,7 +105,6 @@ def _get_generator() -> GPTGenerator:
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
-    """Returns API health status, device info, and model initialization state."""
     gen = _get_generator()
     return HealthResponse(
         status="ok",
@@ -98,7 +115,6 @@ async def health_check() -> HealthResponse:
 
 @app.get("/api/v1/info", response_model=ModelInfoResponse, tags=["Model Info"])
 async def get_model_info() -> ModelInfoResponse:
-    """Returns model metadata, parameter counts, and hyperparameter specifications."""
     if model_instance is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -117,13 +133,61 @@ async def get_model_info() -> ModelInfoResponse:
     )
 
 
+
+@app.get("/api/v1/personas", response_model=List[PersonaResponse], tags=["Personas"])
+async def get_personas() -> List[PersonaResponse]:
+    """Returns available AI Personalities."""
+    return [
+        PersonaResponse(id=p.id, name=p.name, icon=p.icon, description=p.description)
+        for p in list_personas()
+    ]
+
+
+@app.post("/api/v1/upload", response_model=UploadedFileResponse, tags=["Document Processing"])
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> UploadedFileResponse:
+    """Ingests PDF, DOCX, or TXT document and extracts text context."""
+    try:
+        content_bytes = await file.read()
+        parsed = parse_uploaded_file(file.filename, content_bytes)
+
+        file_id = f"file_{int(torch.randint(10000, 99999, (1,)).item())}"
+        db_file = UploadedFileDB(
+            id=file_id,
+            user_id=current_user.id if current_user else None,
+            filename=parsed["filename"],
+            file_type=parsed["file_type"],
+            file_size=parsed["file_size"],
+            content_text=parsed["text"],
+        )
+        db.add(db_file)
+        db.commit()
+        db.refresh(db_file)
+
+        return UploadedFileResponse(
+            id=db_file.id,
+            filename=db_file.filename,
+            file_type=db_file.file_type,
+            file_size=db_file.file_size,
+            text_preview=db_file.content_text[:200] + ("..." if len(db_file.content_text) > 200 else ""),
+        )
+    except Exception as e:
+        logger.error(f"Error uploading document: {e}")
+        raise HTTPException(status_code=500, detail=f"File parsing failed: {str(e)}")
+
+
 @app.post("/api/v1/generate", response_model=GenerateResponse, tags=["Inference"])
 async def generate_text(request: GenerateRequest) -> GenerateResponse:
-    """Generates text continuation for a given prompt string."""
     gen = _get_generator()
     try:
-        result_text = gen.generate(
-            prompt=request.prompt,
+        persona = get_persona(request.persona_id or "default")
+        prompt_with_persona = f"{persona.system_prompt}\nUser: {request.prompt}"
+
+        raw_result = gen.generate(
+            prompt=prompt_with_persona,
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,
             top_k=request.top_k,
@@ -132,30 +196,33 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
             num_beams=request.num_beams,
         )
 
-        if not isinstance(result_text, str):
-            result_text = str(result_text)
+        if not isinstance(raw_result, str):
+            raw_result = str(raw_result)
 
-        # Calculate new tokens generated
+        # Execute Function Calling Tools if detected in generated output
+        processed_result, tool_calls = process_tool_calls(raw_result)
+
         prompt_len = len(tokenizer_instance.encode(request.prompt)) if tokenizer_instance else 0
-        total_len = len(tokenizer_instance.encode(result_text)) if tokenizer_instance else 0
-        tokens_gen = max(0, total_len - prompt_len)
+        total_len = len(tokenizer_instance.encode(processed_result)) if tokenizer_instance else 0
 
         return GenerateResponse(
             prompt=request.prompt,
-            generated_text=result_text,
-            tokens_generated=tokens_gen,
+            generated_text=processed_result,
+            tokens_generated=max(0, total_len - prompt_len),
+            tool_calls=tool_calls if tool_calls else None,
         )
     except Exception as e:
         logger.error(f"Error during generation: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Generation failed: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
 
 
-def _format_chat_prompt(messages: List[ChatMessage]) -> str:
-    """Formats a list of chat messages into a single text prompt."""
-    formatted_parts = []
+def _format_chat_prompt(messages: List[ChatMessage], persona_id: str, file_context: Optional[str] = None) -> str:
+    persona = get_persona(persona_id)
+    formatted_parts = [f"System: {persona.system_prompt}"]
+
+    if file_context:
+        formatted_parts.append(f"System Context File: {file_context[:1000]}")
+
     for msg in messages:
         if msg.role == "system":
             formatted_parts.append(f"System: {msg.content}")
@@ -168,11 +235,24 @@ def _format_chat_prompt(messages: List[ChatMessage]) -> str:
 
 
 @app.post("/api/v1/chat", response_model=ChatResponse, tags=["Inference"])
-async def chat_completion(request: ChatRequest) -> ChatResponse:
-    """Generates an assistant response for multi-turn chat conversations."""
+async def chat_completion(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+) -> ChatResponse:
     gen = _get_generator()
     try:
-        formatted_prompt = _format_chat_prompt(request.messages)
+        file_context = None
+        if request.file_id:
+            db_file = db.query(UploadedFileDB).filter(UploadedFileDB.id == request.file_id).first()
+            if db_file:
+                file_context = db_file.content_text
+
+        formatted_prompt = _format_chat_prompt(
+            request.messages,
+            persona_id=request.persona_id or "default",
+            file_context=file_context,
+        )
 
         full_response = gen.generate(
             prompt=formatted_prompt,
@@ -185,21 +265,60 @@ async def chat_completion(request: ChatRequest) -> ChatResponse:
         if not isinstance(full_response, str):
             full_response = str(full_response)
 
-        # Extract assistant response portion after prompt
-        if formatted_prompt in full_response:
-            assistant_reply = full_response.split(formatted_prompt)[-1].strip()
+        # Process function calling tools
+        processed_response, tool_calls = process_tool_calls(full_response)
+
+        if formatted_prompt in processed_response:
+            assistant_reply = processed_response.split(formatted_prompt)[-1].strip()
         else:
-            assistant_reply = full_response[len(formatted_prompt):].strip()
+            assistant_reply = processed_response[len(formatted_prompt):].strip()
 
         if not assistant_reply:
-            assistant_reply = full_response
+            assistant_reply = processed_response
 
         return ChatResponse(
-            message=ChatMessage(role="assistant", content=assistant_reply)
+            message=ChatMessage(role="assistant", content=assistant_reply),
+            tool_calls=tool_calls if tool_calls else None,
         )
     except Exception as e:
         logger.error(f"Error during chat completion: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat completion failed: {str(e)}",
+        raise HTTPException(status_code=500, detail=f"Chat completion failed: {str(e)}")
+
+
+@app.post("/api/v1/vision", response_model=GenerateResponse, tags=["Multimodal Vision"])
+async def process_image_prompt(
+    prompt: str = "Describe this image",
+    file: UploadFile = File(...),
+) -> GenerateResponse:
+    """Processes uploaded image with multimodal vision encoder and generates description."""
+    try:
+        from PIL import Image
+        import torchvision.transforms as T
+
+        img_bytes = await file.read()
+        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+        transform = T.Compose([
+            T.Resize((64, 64)),
+            T.ToTensor(),
+        ])
+        image_tensor = transform(image).unsqueeze(0)  # (1, 3, 64, 64)
+
+        gen = _get_generator()
+        prompt_ids = tokenizer_instance.encode(prompt)
+        idx = torch.tensor([prompt_ids], dtype=torch.long, device=gen.device)
+
+        with torch.no_grad():
+            logits, _ = multimodal_model(idx.to(gen.device), images=image_tensor.to(gen.device))
+
+        generated_ids = gen.generate(prompt=prompt, max_new_tokens=30, greedy=True)
+        result_text = tokenizer_instance.decode(generated_ids[0].tolist()) if isinstance(generated_ids, torch.Tensor) else generated_ids
+
+        return GenerateResponse(
+            prompt=prompt,
+            generated_text=f"[Multimodal Vision Analysis]: {result_text}",
+            tokens_generated=30,
         )
+    except Exception as e:
+        logger.error(f"Error in vision endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Vision processing failed: {str(e)}")

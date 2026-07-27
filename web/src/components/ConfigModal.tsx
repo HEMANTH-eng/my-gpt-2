@@ -25,8 +25,10 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
       top_p: 0.95,
       max_new_tokens: 100,
       greedy: false,
+      persona_id: config.persona_id || 'default',
     });
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">

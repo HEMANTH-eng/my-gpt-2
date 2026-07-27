@@ -10,11 +10,29 @@ interface ChatMessageProps {
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSpeak = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(message.content);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
   };
 
   return (
@@ -33,7 +51,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       )}
 
       {/* Message Content Bubble */}
-      <div className="group relative">
+      <div className="group relative max-w-2xl">
         <div
           className={`px-4 py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm transition-all ${
             isUser
@@ -49,33 +67,42 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             )}
           </div>
 
-          {/* Copy Button for Assistant Messages */}
+          {/* Tool Calls Execution Cards */}
+          {message.tool_calls && message.tool_calls.length > 0 && (
+            <div className="mt-3 space-y-2 border-t border-zinc-800/60 pt-2 font-mono text-[11px]">
+              {message.tool_calls.map((tool, idx) => (
+                <div key={idx} className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 text-cyan-300">
+                  <div className="flex items-center gap-1.5 font-semibold text-[10px] text-cyan-400 uppercase tracking-wider">
+                    <span>🛠️ Tool Call: {tool.tool}</span>
+                  </div>
+                  <div className="text-zinc-400 mt-0.5">Args: {tool.argument}</div>
+                  <div className="text-emerald-400 mt-1 whitespace-pre-wrap">{tool.output}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Action Buttons for Assistant Messages */}
           {!isUser && !message.isStreaming && (
-            <button
-              onClick={handleCopy}
-              className="opacity-0 group-hover:opacity-100 absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all text-[10px] flex items-center gap-1"
-            >
-              {copied ? (
-                <>
-                  <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                  Copy
-                </>
-              )}
-            </button>
+            <div className="opacity-0 group-hover:opacity-100 absolute top-2 right-2 flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 rounded-lg p-1">
+              {/* TTS Speaker Button */}
+              <button
+                onClick={handleSpeak}
+                className="p-1 text-zinc-400 hover:text-cyan-400 transition-colors"
+                title={isSpeaking ? 'Stop Audio' : 'Listen Text-to-Speech'}
+              >
+                {isSpeaking ? '🔊' : '🔈'}
+              </button>
+
+              {/* Copy Button */}
+              <button
+                onClick={handleCopy}
+                className="p-1 text-zinc-400 hover:text-zinc-200 transition-colors text-[10px]"
+                title="Copy text"
+              >
+                {copied ? '✓ Copied' : '📋'}
+              </button>
+            </div>
           )}
         </div>
 
