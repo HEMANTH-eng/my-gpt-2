@@ -1,0 +1,14 @@
+{
+  "name": "mygpt-desktop",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MyGPT Desktop Application for Windows, macOS, and Linux",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}

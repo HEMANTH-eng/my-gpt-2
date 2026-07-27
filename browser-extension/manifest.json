@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "MyGPT Assistant",
+  "version": "2.0.0",
+  "description": "Instant AI completion and chat overlay powered by your custom MyGPT model.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "sidePanel"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Open MyGPT AI Assistant"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  }
+}

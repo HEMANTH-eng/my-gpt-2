@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyGPT Assistant</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 12px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #09090b;
+      color: #f4f4f5;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+    .status {
+      font-size: 10px;
+      color: #4ade80;
+    }
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      height: 70px;
+      background-color: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      color: #f4f4f5;
+      padding: 8px;
+      font-size: 12px;
+      resize: none;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: #38bdf8;
+    }
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+    }
+    .result {
+      margin-top: 12px;
+      padding: 8px;
+      background-color: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="title">🤖 MyGPT Assistant</span>
+    <span class="status">v2.0 Online</span>
+  </div>
+
+  <textarea id="prompt" placeholder="Ask MyGPT or summarize selected text..."></textarea>
+  <button id="sendBtn">Generate Response</button>
+
+  <div id="output" class="result" style="display: none;"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
