@@ -1,6 +1,6 @@
-# MyGPT: Custom GPT Multimodal Platform Built From Scratch
+# MyGPT: Custom GPT Multimodal Platform & Autonomous AI Agent Engine
 
-A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, and multi-container Docker deployment.
+A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, and multi-container Docker deployment.
 
 ---
 
@@ -15,6 +15,19 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Transformer Decoder Stack**: Pre-LayerNorm residual architecture ($x \leftarrow x + \text{Attn}(\text{LN}_1(x))$ and $x \leftarrow x + \text{MLP}(\text{LN}_2(x))$).
   - **Complete GPT Model Architecture**: Configurable depth, head count, and dimension ($d_{\text{model}}$), weight tying between token embedding and LM head weights (`lm_head.weight = embedding.weight`), and cross-entropy loss computation.
 
+- **Autonomous AI Agent Framework (ReAct Engine)**:
+  - 💻 **Coding Agent**: Code generation, AST syntax verification, and unit test synthesis.
+  - 🔬 **Research Agent**: Multi-step topic exploration, web search, and Markdown report compilation.
+  - 📧 **Email Assistant Agent**: Email drafting, thread summarization, and action item extraction.
+  - 📅 **Calendar Assistant Agent**: Event scheduling, conflict checking, and agenda planning.
+  - 🌐 **Browser Automation Agent**: Web navigation simulation, page scraping, and DOM element parsing.
+  - 📊 **Data Analysis Agent**: Dataset summary statistics ($\mu, \sigma$), variance calculation, and chart insights.
+
+- **Model Lifecycle & Advanced Training Pipeline**:
+  - **Supervised Fine-Tuning (SFT)**: Target response loss masking (`ignore_index = -100` for prompt tokens).
+  - **Continued Pretraining**: Model checkpoint restoration, LR schedule reset, and raw text stream pretraining.
+  - **Domain Datasets & Benchmarks**: Coding, Medical, Legal, Math, and Instruction Following benchmark suite.
+
 - **Production Training Pipeline**:
   - **Automatic Mixed Precision (AMP)**: `torch.amp.autocast` & `torch.amp.GradScaler` for memory efficiency.
   - **Selective Weight Decay**: AdamW parameter group decay splitting (2D linear/embedding weights decayed, 1D biases/LayerNorm un-decayed).
@@ -24,9 +37,6 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
 - **Advanced Inference Engine**:
   - **Decoding Algorithms**: Temperature scaling, Top-$k$ truncation, Top-$p$ (Nucleus) cumulative probability sampling, deterministic Greedy decoding, and Beam Search.
   - **Real-Time Streaming Generation**: Python generator yielding individual token strings/IDs in real time.
-
-- **Evaluation & Benchmarking Framework**:
-  - Perplexity metric ($\text{PPL} = e^{\text{loss}}$), validation loss evaluation, and inference throughput benchmarking (`tokens/sec`, `ms/token`).
 
 - **Enterprise Platform Features**:
   - **User Accounts & Authentication**: JWT token authentication and bcrypt password hashing.
@@ -38,7 +48,7 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Plugin / Function Calling Framework**: Interactive tool execution for Web Search, Python REPL Code Interpreter, and Calculator tools.
 
 - **Full-Stack Application & Deployment Infrastructure**:
-  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
+  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
   - **Next.js Web Studio**: Responsive dark-mode frontend interface built with App Router, TypeScript, and Tailwind CSS.
   - **Docker & Compose**: Multi-stage Dockerfiles (`Dockerfile.api`, `Dockerfile.web`), `docker-compose.yml`, and one-click deployment scripts (`deploy.sh`, `deploy.ps1`).
 
@@ -48,6 +58,10 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
 
 ```text
 d:\Projects\my-gpt 2\
+├── agents/               # Autonomous AI Agent Engine & Specialized Agents
+│   ├── agent_manager.py  # Agent Factory & Registry
+│   ├── base_agent.py     # BaseAgent & ReAct Loop Execution Engine
+│   └── specialized.py    # Coding, Research, Email, Calendar, Browser, Data Analysis Agents
 ├── api/                  # FastAPI Backend API Server, Auth, Database Models, Schemas
 │   ├── app.py            # Main FastAPI server entry point
 │   ├── auth.py           # Authentication, JWT, and Password Hashing
@@ -58,7 +72,8 @@ d:\Projects\my-gpt 2\
 │   ├── model_config.py   # GPTConfig dataclass & model presets (gpt_micro, gpt2_small)
 │   ├── train_config.py   # TrainConfig dataclass & training hyperparameters
 │   └── personas.py       # AI Personalities (General, Code Architect, Writer, Researcher)
-├── dataset/              # PyTorch Dataset Pipeline
+├── dataset/              # PyTorch Dataset Pipeline & Curator
+│   ├── curator.py        # SFT Dataset Curator & Response Loss Masking
 │   ├── dataloader.py     # DataLoader construction utilities
 │   ├── dataset.py        # GPTDataset (input x and right-shifted target y)
 │   └── preprocessor.py   # Memory-friendly tokenization & memmap creation
@@ -76,24 +91,30 @@ d:\Projects\my-gpt 2\
 ├── scripts/              # Automation & Evaluation Scripts
 │   ├── deploy.ps1        # PowerShell Deployment Script (Windows)
 │   ├── deploy.sh         # POSIX Bash Deployment Script (Linux/macOS)
-│   └── evaluate.py       # Model Perplexity & Throughput Evaluation Script
-├── tests/                # Comprehensive Test Suite (67 Pytest Unit Tests)
+│   ├── evaluate.py       # Model Perplexity & Throughput Evaluation Script
+│   └── train_better_model.py # CLI for SFT, Continued Pretraining & Domain Benchmarks
+├── tests/                # Comprehensive Test Suite (79 Pytest Unit Tests)
+│   ├── test_agents.py    # AI Agent ReAct Loop & Endpoint Tests
 │   ├── test_api.py       # API Endpoint Tests
 │   ├── test_dataset.py   # Dataset & DataLoader Tests
 │   ├── test_enterprise.py# Auth, DB, File RAG, Vision, Tools & Persona Tests
 │   ├── test_inference.py # Sampling, Beam Search & Streaming Tests
 │   ├── test_metrics.py   # Perplexity & Speed Benchmark Tests
 │   ├── test_model.py     # Embeddings, Attention, Blocks & GPT Model Tests
+│   ├── test_model_lifecycle.py # SFT, Loss Masking, Continued Pretraining Tests
 │   ├── test_tokenizer.py # BPE Tokenizer Tests
 │   └── test_trainer.py   # Optimizer Decay Splitting, Scheduler & Checkpoint Tests
 ├── tokenizer/            # BPE Tokenizer
 │   ├── base_tokenizer.py # Abstract Base Class for Tokenizers
 │   └── bpe_tokenizer.py  # Byte-Level Byte Pair Encoding Tokenizer
-├── training/             # Training Pipeline
+├── training/             # Training Pipeline & SFT Engine
 │   ├── checkpoint.py     # CheckpointManager (save, load, latest/best tracking)
+│   ├── continued_pretrain.py # Continued Pretraining Pipeline
 │   ├── optimizer.py      # Selective AdamW Weight Decay & Cosine Warmup Scheduler
+│   ├── sft_trainer.py    # Supervised Fine-Tuning Engine with Loss Masking
 │   └── trainer.py        # Trainer Class with AMP, Gradient Clipping & Early Stopping
 ├── utils/                # System Utilities & Tool Framework
+│   ├── benchmarks.py     # Domain Benchmark Evaluation Suite
 │   ├── file_parser.py    # Document Parser (PDF, DOCX, TXT)
 │   ├── helpers.py        # Random seed setting and CUDA/CPU device detection
 │   ├── logger.py         # Structured Logging Utility
@@ -101,7 +122,7 @@ d:\Projects\my-gpt 2\
 │   └── tools.py          # Tool Execution Framework (Web Search, Python REPL, Calculator)
 ├── web/                  # Next.js Web Studio Application
 │   ├── src/app/          # Next.js App Router Pages & Styles
-│   ├── src/components/   # Chat, Header, Sidebar, Input, Auth & Config Modal Components
+│   ├── src/components/   # Agent Studio, Chat, Header, Sidebar, Auth & Config Components
 │   ├── src/lib/          # Client API & Storage Utilities
 │   └── src/types/        # TypeScript Type Definitions
 ├── Dockerfile.api        # Multi-stage Dockerfile for FastAPI Python Backend
@@ -125,7 +146,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run pytest unit test suite (67 tests)
+# Run pytest unit test suite (79 tests)
 python -m pytest tests/ -v
 ```
 
@@ -164,9 +185,9 @@ For detailed production configuration, Nginx SSL proxy setup, and CUDA accelerat
 
 ## 🧪 Testing Summary
 
-Executed full test suite verifying all modules:
+Executed full test suite verifying all 79 tests:
 
 ```powershell
 python -m pytest tests/ -v
 ```
-- **Status**: 67 passed in 32.80s
+- **Status**: 79 passed in 31.36s
