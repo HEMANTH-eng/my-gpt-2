@@ -1,12 +1,19 @@
 from contextlib import asynccontextmanager
 import io
+import time
 from typing import Dict, List, Optional
+
 from fastapi import FastAPI, File, HTTPException, UploadFile, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import torch
 
 from agents.agent_manager import AgentManager
+from api.metrics import generate_prometheus_metrics, track_latency, track_request
+from models.gpu_pool import global_gpu_pool
+from utils.cache import global_response_cache
+
+
 from api.auth import router as auth_router, get_current_user
 from api.database import get_db, init_db
 from api.models_db import ChatMessageDB, ChatSessionDB, UploadedFileDB, User
@@ -123,6 +130,15 @@ async def health_check() -> HealthResponse:
         model_loaded=True,
         device=gen.device,
     )
+
+
+@app.get("/metrics", tags=["Monitoring"])
+async def metrics():
+    """Returns Prometheus performance and hardware exposition metrics."""
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(generate_prometheus_metrics())
+
+
 
 
 @app.get("/api/v1/info", response_model=ModelInfoResponse, tags=["Model Info"])
@@ -271,6 +287,20 @@ async def upload_document(
 
 @app.post("/api/v1/generate", response_model=GenerateResponse, tags=["Inference"])
 async def generate_text(request: GenerateRequest) -> GenerateResponse:
+    track_request("generate")
+    start_time = time.time()
+
+    # Check Response Cache first
+    cached_output = global_response_cache.get(request.prompt, request.model_dump())
+    if cached_output is not None:
+        track_latency(time.time() - start_time)
+        return GenerateResponse(
+            prompt=request.prompt,
+            generated_text=cached_output["text"],
+            tokens_generated=cached_output["tokens"],
+            tool_calls=cached_output.get("tool_calls"),
+        )
+
     gen = _get_generator()
     try:
         persona = get_persona(request.persona_id or "default")
@@ -294,16 +324,27 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
 
         prompt_len = len(tokenizer_instance.encode(request.prompt)) if tokenizer_instance else 0
         total_len = len(tokenizer_instance.encode(processed_result)) if tokenizer_instance else 0
+        tokens_gen = max(0, total_len - prompt_len)
+
+        # Cache result
+        global_response_cache.set(
+            request.prompt,
+            {"text": processed_result, "tokens": tokens_gen, "tool_calls": tool_calls if tool_calls else None},
+            parameters=request.model_dump(),
+        )
+
+        track_latency(time.time() - start_time)
 
         return GenerateResponse(
             prompt=request.prompt,
             generated_text=processed_result,
-            tokens_generated=max(0, total_len - prompt_len),
+            tokens_generated=tokens_gen,
             tool_calls=tool_calls if tool_calls else None,
         )
     except Exception as e:
         logger.error(f"Error during generation: {e}")
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
 
 
 def _format_chat_prompt(messages: List[ChatMessage], persona_id: str, file_context: Optional[str] = None) -> str:
