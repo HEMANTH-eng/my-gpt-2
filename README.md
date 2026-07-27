@@ -1,6 +1,6 @@
-# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & High-Throughput Scaling Infrastructure
+# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & Enterprise Infrastructure
 
-A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, response caching, Prometheus metrics, and multi-container Docker/Kubernetes deployment.
+A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, response caching, enterprise security, and multi-container Docker/Kubernetes deployment.
 
 ---
 
@@ -14,6 +14,14 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multi-Head Causal Attention**: Batched parallel head projections ($Q, K, V \in \mathbb{R}^{B \times n_{\text{head}} \times T \times d_{\text{head}}}$) and output projection $W^O$.
   - **Transformer Decoder Stack**: Pre-LayerNorm residual architecture ($x \leftarrow x + \text{Attn}(\text{LN}_1(x))$ and $x \leftarrow x + \text{MLP}(\text{LN}_2(x))$).
   - **Complete GPT Model Architecture**: Configurable depth, head count, and dimension ($d_{\text{model}}$), weight tying between token embedding and LM head weights (`lm_head.weight = embedding.weight`), and cross-entropy loss computation.
+
+- **Enterprise Security & Threat Prevention**:
+  - 🔐 **AES-256 Payload Encryption**: Symmetric Fernet encryption for data at rest (`utils/crypto.py`).
+  - 🛡️ **Input Sanitizer**: Threat prevention filter neutralizing Prompt Injection, SQL Injection, XSS, and Command Injection attacks (`utils/sanitizer.py`).
+  - 🔑 **API Key Management**: SHA-256 hashed API key creation and validation (`X-API-Key` header auth).
+  - ⚖️ **Role-Based Access Control (RBAC)**: Role hierarchy (`admin: 3 > user: 2 > guest: 1`) enforcing access permissions (`api/auth.py`).
+  - ⚡ **Sliding-Window Rate Limiting**: Request threshold limiter per IP / API key (`utils/rate_limiter.py`).
+  - 📜 **Structured Audit Logging**: Writes structured JSON security event entries to `audit.log` (`utils/audit.py`).
 
 - **High-Throughput Distributed Scaling Infrastructure**:
   - ⚖️ **Nginx Load Balancer**: Least-connections load distribution across API server replicas with rate limiting (`100r/m`).
@@ -57,14 +65,14 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
 
 - **Enterprise Platform Features**:
   - **User Accounts & Authentication**: JWT token authentication and bcrypt password hashing.
-  - **Database Persistence**: SQLite database storage via SQLAlchemy (`User`, `ChatSessionDB`, `ChatMessageDB`, `UploadedFileDB`).
+  - **Database Persistence**: SQLite database storage via SQLAlchemy (`User`, `ApiKeyDB`, `ChatSessionDB`, `ChatMessageDB`, `UploadedFileDB`).
   - **Document RAG Ingestion**: File parser extracting text context from PDF, DOCX, and TXT files.
   - **Multimodal Vision Image Understanding**: `VisionEncoder` patch convolutional feature projector mapping image inputs into LLM sequence embeddings.
   - **Voice STT & Text-To-Speech (TTS)**: Web Speech API voice microphone input and audio synthesis playback.
   - **Multiple AI Personalities (Personas)**: Persona configurations (*General Assistant*, *Senior Code Architect*, *Creative Storyteller*, *Academic Researcher*, *Math Tutor*).
 
 - **Full-Stack Application & Deployment Infrastructure**:
-  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/tools`, `/api/v1/tools/execute`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/metrics`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
+  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/tools`, `/api/v1/tools/execute`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/auth/api-keys`, `/metrics`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
   - **Next.js Web Studio**: Responsive dark-mode frontend interface built with App Router, TypeScript, and Tailwind CSS.
   - **Docker & Kubernetes**: Multi-stage Dockerfiles (`Dockerfile.api`, `Dockerfile.web`), Nginx load balancer (`docker/nginx.conf`), `docker-compose.yml`, Kubernetes HPA (`k8s/hpa.yaml`), and one-click deployment scripts (`deploy.sh`, `deploy.ps1`).
 
@@ -80,10 +88,10 @@ d:\Projects\my-gpt 2\
 │   └── specialized.py    # Coding, Research, Email, Calendar, Browser, Data Analysis Agents
 ├── api/                  # FastAPI Backend API Server, Auth, Database Models, Schemas, Metrics
 │   ├── app.py            # Main FastAPI server entry point
-│   ├── auth.py           # Authentication, JWT, and Password Hashing
+│   ├── auth.py           # Authentication, JWT, API Keys, and RBAC Authorization
 │   ├── database.py       # SQLAlchemy SQLite Engine & Session setup
 │   ├── metrics.py        # Prometheus Metrics Exporter & Alerting
-│   ├── models_db.py      # Database ORM models (User, ChatSession, ChatMessage, UploadedFile)
+│   ├── models_db.py      # Database ORM models (User, ApiKey, ChatSession, ChatMessage, UploadedFile)
 │   └── schemas.py        # Pydantic request/response schemas
 ├── config/               # Model & Training Configuration
 │   ├── model_config.py   # GPTConfig dataclass & model presets (gpt_micro, gpt2_small)
@@ -115,7 +123,7 @@ d:\Projects\my-gpt 2\
 │   ├── deploy.sh         # POSIX Bash Deployment Script (Linux/macOS)
 │   ├── evaluate.py       # Model Perplexity & Throughput Evaluation Script
 │   └── train_better_model.py # CLI for SFT, Continued Pretraining & Domain Benchmarks
-├── tests/                # Comprehensive Test Suite (87 Pytest Unit Tests)
+├── tests/                # Comprehensive Test Suite (93 Pytest Unit Tests)
 │   ├── test_agents.py    # AI Agent ReAct Loop & Endpoint Tests
 │   ├── test_api.py       # API Endpoint Tests
 │   ├── test_dataset.py   # Dataset & DataLoader Tests
@@ -125,6 +133,7 @@ d:\Projects\my-gpt 2\
 │   ├── test_model.py     # Embeddings, Attention, Blocks & GPT Model Tests
 │   ├── test_model_lifecycle.py # SFT, Loss Masking, Continued Pretraining Tests
 │   ├── test_scaling.py   # Response Cache, Multi-GPU Pool & Task Queue Tests
+│   ├── test_security.py  # AES-256, Sanitization, API Keys, RBAC & Audit Tests
 │   ├── test_tokenizer.py # BPE Tokenizer Tests
 │   ├── test_tools.py     # External Tool Registry & Endpoint Tests
 │   └── test_trainer.py   # Optimizer Decay Splitting, Scheduler & Checkpoint Tests
@@ -137,13 +146,17 @@ d:\Projects\my-gpt 2\
 │   ├── optimizer.py      # Selective AdamW Weight Decay & Cosine Warmup Scheduler
 │   ├── sft_trainer.py    # Supervised Fine-Tuning Engine with Loss Masking
 │   └── trainer.py        # Trainer Class with AMP, Gradient Clipping & Early Stopping
-├── utils/                # System Utilities & Tool Framework
+├── utils/                # System Utilities & Security Framework
+│   ├── audit.py          # Structured JSON Security Audit Logger
 │   ├── benchmarks.py     # Domain Benchmark Evaluation Suite
 │   ├── cache.py          # Response Cache Engine (LRU/SHA-256)
+│   ├── crypto.py         # AES-256 Symmetric Payload Encryption Engine
 │   ├── file_parser.py    # Document Parser (PDF, DOCX, TXT)
 │   ├── helpers.py        # Random seed setting and CUDA/CPU device detection
 │   ├── logger.py         # Structured Logging Utility
 │   ├── metrics.py        # Perplexity & Speed Throughput Metrics
+│   ├── rate_limiter.py   # Sliding-Window Rate Limiter Engine
+│   ├── sanitizer.py      # Input Sanitizer (Threat Prevention Filter)
 │   ├── task_queue.py     # Thread-Safe Background Asynchronous Task Queue
 │   └── tools.py          # Extensible Tool Calling Registry (7 Tools)
 ├── web/                  # Next.js Web Studio Application
@@ -172,7 +185,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run pytest unit test suite (87 tests)
+# Run pytest unit test suite (93 tests)
 python -m pytest tests/ -v
 ```
 
@@ -212,9 +225,9 @@ For detailed production configuration, Nginx SSL proxy setup, and CUDA accelerat
 
 ## 🧪 Testing Summary
 
-Executed full test suite verifying all 87 tests:
+Executed full test suite verifying all 93 tests:
 
 ```powershell
 python -m pytest tests/ -v
 ```
-- **Status**: 87 passed in 15.93s
+- **Status**: 93 passed in 17.33s
