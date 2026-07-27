@@ -11,7 +11,11 @@ import torch
 from agents.agent_manager import AgentManager
 from api.metrics import generate_prometheus_metrics, track_latency, track_request
 from models.gpu_pool import global_gpu_pool
+from utils.audit import global_audit_logger
 from utils.cache import global_response_cache
+from utils.rate_limiter import global_rate_limiter
+from utils.sanitizer import sanitize_input
+
 
 
 from api.auth import router as auth_router, get_current_user
@@ -287,6 +291,15 @@ async def upload_document(
 
 @app.post("/api/v1/generate", response_model=GenerateResponse, tags=["Inference"])
 async def generate_text(request: GenerateRequest) -> GenerateResponse:
+    # 1. Rate Limiting Check
+    if not global_rate_limiter.is_allowed("default_client", limit=120):
+        global_audit_logger.log_event("generate", status="rate_limited")
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please wait before retrying.")
+
+    # 2. Input Sanitization Check
+    sanitized_prompt = sanitize_input(request.prompt)
+    request.prompt = sanitized_prompt
+
     track_request("generate")
     start_time = time.time()
 
@@ -300,6 +313,7 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
             tokens_generated=cached_output["tokens"],
             tool_calls=cached_output.get("tool_calls"),
         )
+
 
     gen = _get_generator()
     try:

@@ -1,4 +1,7 @@
+from utils.audit import global_audit_logger
 from utils.benchmarks import run_domain_benchmarks
+from utils.cache import global_response_cache
+from utils.crypto import decrypt_payload, encrypt_payload
 from utils.helpers import get_device, set_seed
 from utils.logger import get_logger
 from utils.metrics import (
@@ -6,6 +9,8 @@ from utils.metrics import (
     compute_perplexity,
     evaluate_loss_and_perplexity,
 )
+from utils.rate_limiter import global_rate_limiter
+from utils.sanitizer import sanitize_input
 from utils.tools import (
     execute_single_tool,
     list_available_tools,
@@ -23,7 +28,13 @@ __all__ = [
     "list_available_tools",
     "execute_single_tool",
     "process_tool_calls",
+    "encrypt_payload",
+    "decrypt_payload",
+    "sanitize_input",
+    "global_rate_limiter",
+    "global_audit_logger",
 ]
+
 
 
 
