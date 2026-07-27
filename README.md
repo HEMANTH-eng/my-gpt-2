@@ -1,6 +1,6 @@
-# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & Tool Calling Engine
+# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & High-Throughput Scaling Infrastructure
 
-A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, and multi-container Docker deployment.
+A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, response caching, Prometheus metrics, and multi-container Docker/Kubernetes deployment.
 
 ---
 
@@ -14,6 +14,14 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multi-Head Causal Attention**: Batched parallel head projections ($Q, K, V \in \mathbb{R}^{B \times n_{\text{head}} \times T \times d_{\text{head}}}$) and output projection $W^O$.
   - **Transformer Decoder Stack**: Pre-LayerNorm residual architecture ($x \leftarrow x + \text{Attn}(\text{LN}_1(x))$ and $x \leftarrow x + \text{MLP}(\text{LN}_2(x))$).
   - **Complete GPT Model Architecture**: Configurable depth, head count, and dimension ($d_{\text{model}}$), weight tying between token embedding and LM head weights (`lm_head.weight = embedding.weight`), and cross-entropy loss computation.
+
+- **High-Throughput Distributed Scaling Infrastructure**:
+  - ⚖️ **Nginx Load Balancer**: Least-connections load distribution across API server replicas with rate limiting (`100r/m`).
+  - ⚡ **Response Cache Engine**: SHA-256 key hashing with LRU eviction and TTL expiration (`utils/cache.py`).
+  - 🖥️ **Multi-GPU Device Pool**: CUDA GPU hardware detection, round-robin load distribution, and VRAM monitoring (`models/gpu_pool.py`).
+  - 📥 **Background Task Queue**: Thread-safe FIFO worker queue for asynchronous batch inference and agent jobs (`utils/task_queue.py`).
+  - 📈 **Prometheus Metrics & Alerting**: `/metrics` exposition endpoint tracking request volume, latency, cache hit ratio, and VRAM memory.
+  - ☸️ **Kubernetes HPA Auto-Scaling**: Deployment and HorizontalPodAutoscaler scaling API replicas from 2 to 10 instances dynamically (`k8s/hpa.yaml`).
 
 - **Extensible Tool Calling System**:
   - 🌐 **Web Search**: Real-time web database search lookup (`web_search`).
@@ -56,9 +64,9 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multiple AI Personalities (Personas)**: Persona configurations (*General Assistant*, *Senior Code Architect*, *Creative Storyteller*, *Academic Researcher*, *Math Tutor*).
 
 - **Full-Stack Application & Deployment Infrastructure**:
-  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/tools`, `/api/v1/tools/execute`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
+  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/tools`, `/api/v1/tools/execute`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/metrics`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
   - **Next.js Web Studio**: Responsive dark-mode frontend interface built with App Router, TypeScript, and Tailwind CSS.
-  - **Docker & Compose**: Multi-stage Dockerfiles (`Dockerfile.api`, `Dockerfile.web`), `docker-compose.yml`, and one-click deployment scripts (`deploy.sh`, `deploy.ps1`).
+  - **Docker & Kubernetes**: Multi-stage Dockerfiles (`Dockerfile.api`, `Dockerfile.web`), Nginx load balancer (`docker/nginx.conf`), `docker-compose.yml`, Kubernetes HPA (`k8s/hpa.yaml`), and one-click deployment scripts (`deploy.sh`, `deploy.ps1`).
 
 ---
 
@@ -70,10 +78,11 @@ d:\Projects\my-gpt 2\
 │   ├── agent_manager.py  # Agent Factory & Registry
 │   ├── base_agent.py     # BaseAgent & ReAct Loop Execution Engine
 │   └── specialized.py    # Coding, Research, Email, Calendar, Browser, Data Analysis Agents
-├── api/                  # FastAPI Backend API Server, Auth, Database Models, Schemas
+├── api/                  # FastAPI Backend API Server, Auth, Database Models, Schemas, Metrics
 │   ├── app.py            # Main FastAPI server entry point
 │   ├── auth.py           # Authentication, JWT, and Password Hashing
 │   ├── database.py       # SQLAlchemy SQLite Engine & Session setup
+│   ├── metrics.py        # Prometheus Metrics Exporter & Alerting
 │   ├── models_db.py      # Database ORM models (User, ChatSession, ChatMessage, UploadedFile)
 │   └── schemas.py        # Pydantic request/response schemas
 ├── config/               # Model & Training Configuration
@@ -85,13 +94,18 @@ d:\Projects\my-gpt 2\
 │   ├── dataloader.py     # DataLoader construction utilities
 │   ├── dataset.py        # GPTDataset (input x and right-shifted target y)
 │   └── preprocessor.py   # Memory-friendly tokenization & memmap creation
+├── docker/               # Production Nginx & Container Config
+│   └── nginx.conf        # Nginx Reverse-Proxy Load Balancer
 ├── docs/                 # Production & Technical Documentation
 │   ├── api_guide.md      # API Endpoint Specifications & cURL Guide
 │   ├── deployment.md     # Production Docker, Nginx, Systemd, and CUDA Guide
 │   └── evaluation_report.md # Benchmark Metrics Report
-├── models/               # PyTorch Model Architecture
+├── k8s/                  # Kubernetes Auto-Scaling Manifests
+│   └── hpa.yaml          # Deployment & HorizontalPodAutoscaler (HPA)
+├── models/               # PyTorch Model Architecture & Hardware Pool
 │   ├── attention.py      # Scaled Dot-Product & Multi-Head Causal Attention
 │   ├── embedding.py      # Token, Positional, Sinusoidal, and GPTEmbedding
+│   ├── gpu_pool.py       # Multi-GPU Device Pool Load Allocator
 │   ├── gpt.py            # Complete GPT Model Class & Autoregressive generate()
 │   ├── inference.py      # GPTGenerator (Temperature, Top-k, Top-p, Beam Search, Streaming)
 │   ├── layers.py         # FeedForward (GELU), LayerNorm, and TransformerBlock
@@ -101,7 +115,7 @@ d:\Projects\my-gpt 2\
 │   ├── deploy.sh         # POSIX Bash Deployment Script (Linux/macOS)
 │   ├── evaluate.py       # Model Perplexity & Throughput Evaluation Script
 │   └── train_better_model.py # CLI for SFT, Continued Pretraining & Domain Benchmarks
-├── tests/                # Comprehensive Test Suite (83 Pytest Unit Tests)
+├── tests/                # Comprehensive Test Suite (87 Pytest Unit Tests)
 │   ├── test_agents.py    # AI Agent ReAct Loop & Endpoint Tests
 │   ├── test_api.py       # API Endpoint Tests
 │   ├── test_dataset.py   # Dataset & DataLoader Tests
@@ -110,6 +124,7 @@ d:\Projects\my-gpt 2\
 │   ├── test_metrics.py   # Perplexity & Speed Benchmark Tests
 │   ├── test_model.py     # Embeddings, Attention, Blocks & GPT Model Tests
 │   ├── test_model_lifecycle.py # SFT, Loss Masking, Continued Pretraining Tests
+│   ├── test_scaling.py   # Response Cache, Multi-GPU Pool & Task Queue Tests
 │   ├── test_tokenizer.py # BPE Tokenizer Tests
 │   ├── test_tools.py     # External Tool Registry & Endpoint Tests
 │   └── test_trainer.py   # Optimizer Decay Splitting, Scheduler & Checkpoint Tests
@@ -124,10 +139,12 @@ d:\Projects\my-gpt 2\
 │   └── trainer.py        # Trainer Class with AMP, Gradient Clipping & Early Stopping
 ├── utils/                # System Utilities & Tool Framework
 │   ├── benchmarks.py     # Domain Benchmark Evaluation Suite
+│   ├── cache.py          # Response Cache Engine (LRU/SHA-256)
 │   ├── file_parser.py    # Document Parser (PDF, DOCX, TXT)
 │   ├── helpers.py        # Random seed setting and CUDA/CPU device detection
 │   ├── logger.py         # Structured Logging Utility
 │   ├── metrics.py        # Perplexity & Speed Throughput Metrics
+│   ├── task_queue.py     # Thread-Safe Background Asynchronous Task Queue
 │   └── tools.py          # Extensible Tool Calling Registry (7 Tools)
 ├── web/                  # Next.js Web Studio Application
 │   ├── src/app/          # Next.js App Router Pages & Styles
@@ -155,7 +172,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run pytest unit test suite (83 tests)
+# Run pytest unit test suite (87 tests)
 python -m pytest tests/ -v
 ```
 
@@ -165,6 +182,7 @@ python -m pytest tests/ -v
 python -m uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 - **Interactive Swagger UI**: `http://127.0.0.1:8000/docs`
+- **Prometheus Metrics**: `http://127.0.0.1:8000/metrics`
 
 ### 3. Launch Next.js Web Studio Locally
 
@@ -175,9 +193,9 @@ npm --prefix web run dev
 
 ---
 
-## 🐳 Docker Deployment
+## 🐳 Docker & Kubernetes Deployment
 
-Deploy backend and frontend using Docker Compose:
+Deploy backend, load balancer, and frontend:
 
 ```bash
 # POSIX Bash (Linux/macOS)
@@ -194,9 +212,9 @@ For detailed production configuration, Nginx SSL proxy setup, and CUDA accelerat
 
 ## 🧪 Testing Summary
 
-Executed full test suite verifying all 83 tests:
+Executed full test suite verifying all 87 tests:
 
 ```powershell
 python -m pytest tests/ -v
 ```
-- **Status**: 83 passed in 17.38s
+- **Status**: 87 passed in 15.93s
