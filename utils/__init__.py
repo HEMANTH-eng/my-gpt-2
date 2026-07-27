@@ -6,6 +6,11 @@ from utils.metrics import (
     compute_perplexity,
     evaluate_loss_and_perplexity,
 )
+from utils.tools import (
+    execute_single_tool,
+    list_available_tools,
+    process_tool_calls,
+)
 
 __all__ = [
     "get_logger",
@@ -15,6 +20,10 @@ __all__ = [
     "evaluate_loss_and_perplexity",
     "benchmark_generation_speed",
     "run_domain_benchmarks",
+    "list_available_tools",
+    "execute_single_tool",
+    "process_tool_calls",
 ]
+
 
 

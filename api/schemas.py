@@ -135,6 +135,31 @@ class AgentTypeResponse(BaseModel):
     description: str
 
 
+class ToolInfoResponse(BaseModel):
+    """Schema for tool metadata."""
+
+    tool_id: str
+    name: str
+    description: str
+    syntax: str
+
+
+class ToolExecuteRequest(BaseModel):
+    """Request schema for executing a standalone tool."""
+
+    tool_name: str = Field(..., description="Target tool name ('search', 'calculator', 'weather', 'db_query', 'python', 'pdf_reader', 'image_gen').")
+    argument: str = Field(..., description="Input argument for the tool.")
+
+
+class ToolExecuteResponse(BaseModel):
+    """Response schema for tool execution."""
+
+    tool_name: str
+    argument: str
+    output: str
+
+
+
 
 
 class HealthResponse(BaseModel):

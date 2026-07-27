@@ -23,6 +23,9 @@ from api.schemas import (
     HealthResponse,
     ModelInfoResponse,
     PersonaResponse,
+    ToolExecuteRequest,
+    ToolExecuteResponse,
+    ToolInfoResponse,
     UploadedFileResponse,
 )
 from config.model_config import GPTConfig
@@ -33,7 +36,8 @@ from models.vision import MultimodalGPT
 from tokenizer.bpe_tokenizer import BPETokenizer
 from utils.file_parser import parse_uploaded_file
 from utils.logger import get_logger
-from utils.tools import process_tool_calls
+from utils.tools import execute_single_tool, list_available_tools, process_tool_calls
+
 
 logger = get_logger("api_server")
 
@@ -141,13 +145,34 @@ async def get_model_info() -> ModelInfoResponse:
     )
 
 
-@app.get("/api/v1/personas", response_model=List[PersonaResponse], tags=["Personas"])
-async def get_personas() -> List[PersonaResponse]:
-    """Returns available AI Personalities."""
+@app.get("/api/v1/tools", response_model=List[ToolInfoResponse], tags=["External Tools"])
+async def get_tools() -> List[ToolInfoResponse]:
+    """Returns list of available external tools."""
     return [
-        PersonaResponse(id=p.id, name=p.name, icon=p.icon, description=p.description)
-        for p in list_personas()
+        ToolInfoResponse(
+            tool_id=t["tool_id"],
+            name=t["name"],
+            description=t["description"],
+            syntax=t["syntax"],
+        )
+        for t in list_available_tools()
     ]
+
+
+@app.post("/api/v1/tools/execute", response_model=ToolExecuteResponse, tags=["External Tools"])
+async def execute_tool(request: ToolExecuteRequest) -> ToolExecuteResponse:
+    """Executes a single standalone external tool."""
+    try:
+        output = execute_single_tool(request.tool_name, request.argument)
+        return ToolExecuteResponse(
+            tool_name=request.tool_name,
+            argument=request.argument,
+            output=output,
+        )
+    except Exception as e:
+        logger.error(f"Error executing tool '{request.tool_name}': {e}")
+        raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
+
 
 
 @app.get("/api/v1/agents/types", response_model=List[AgentTypeResponse], tags=["AI Agents"])
