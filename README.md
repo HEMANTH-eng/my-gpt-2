@@ -1,6 +1,6 @@
-# MyGPT: Custom GPT Multimodal Platform & Autonomous AI Agent Engine
+# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & Tool Calling Engine
 
-A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, and multi-container Docker deployment.
+A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, and multi-container Docker deployment.
 
 ---
 
@@ -14,6 +14,15 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multi-Head Causal Attention**: Batched parallel head projections ($Q, K, V \in \mathbb{R}^{B \times n_{\text{head}} \times T \times d_{\text{head}}}$) and output projection $W^O$.
   - **Transformer Decoder Stack**: Pre-LayerNorm residual architecture ($x \leftarrow x + \text{Attn}(\text{LN}_1(x))$ and $x \leftarrow x + \text{MLP}(\text{LN}_2(x))$).
   - **Complete GPT Model Architecture**: Configurable depth, head count, and dimension ($d_{\text{model}}$), weight tying between token embedding and LM head weights (`lm_head.weight = embedding.weight`), and cross-entropy loss computation.
+
+- **Extensible Tool Calling System**:
+  - 🌐 **Web Search**: Real-time web database search lookup (`web_search`).
+  - 🧮 **Calculator**: Arithmetic & mathematical expression evaluator (`calculator`).
+  - ☀️ **Weather Lookup**: City temperature & 48h weather forecast (`weather_search`).
+  - 🗄️ **Database Queries**: Read-only SQLite database query engine (`db_query`).
+  - 🐍 **Python REPL**: Safe isolated Python code execution interpreter (`python_repl`).
+  - 📄 **PDF Reader**: PDF document text extraction and reader (`pdf_reader`).
+  - 🎨 **Image Generator**: Generates SVG visual graphics & mockups (`image_generator`).
 
 - **Autonomous AI Agent Framework (ReAct Engine)**:
   - 💻 **Coding Agent**: Code generation, AST syntax verification, and unit test synthesis.
@@ -45,10 +54,9 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multimodal Vision Image Understanding**: `VisionEncoder` patch convolutional feature projector mapping image inputs into LLM sequence embeddings.
   - **Voice STT & Text-To-Speech (TTS)**: Web Speech API voice microphone input and audio synthesis playback.
   - **Multiple AI Personalities (Personas)**: Persona configurations (*General Assistant*, *Senior Code Architect*, *Creative Storyteller*, *Academic Researcher*, *Math Tutor*).
-  - **Plugin / Function Calling Framework**: Interactive tool execution for Web Search, Python REPL Code Interpreter, and Calculator tools.
 
 - **Full-Stack Application & Deployment Infrastructure**:
-  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
+  - **FastAPI Backend Server**: Exposing `/api/v1/generate`, `/api/v1/chat`, `/api/v1/tools`, `/api/v1/tools/execute`, `/api/v1/agents/execute`, `/api/v1/agents/types`, `/api/v1/upload`, `/api/v1/vision`, `/api/v1/health`, `/api/v1/info`, and `/api/v1/auth`.
   - **Next.js Web Studio**: Responsive dark-mode frontend interface built with App Router, TypeScript, and Tailwind CSS.
   - **Docker & Compose**: Multi-stage Dockerfiles (`Dockerfile.api`, `Dockerfile.web`), `docker-compose.yml`, and one-click deployment scripts (`deploy.sh`, `deploy.ps1`).
 
@@ -93,7 +101,7 @@ d:\Projects\my-gpt 2\
 │   ├── deploy.sh         # POSIX Bash Deployment Script (Linux/macOS)
 │   ├── evaluate.py       # Model Perplexity & Throughput Evaluation Script
 │   └── train_better_model.py # CLI for SFT, Continued Pretraining & Domain Benchmarks
-├── tests/                # Comprehensive Test Suite (79 Pytest Unit Tests)
+├── tests/                # Comprehensive Test Suite (83 Pytest Unit Tests)
 │   ├── test_agents.py    # AI Agent ReAct Loop & Endpoint Tests
 │   ├── test_api.py       # API Endpoint Tests
 │   ├── test_dataset.py   # Dataset & DataLoader Tests
@@ -103,6 +111,7 @@ d:\Projects\my-gpt 2\
 │   ├── test_model.py     # Embeddings, Attention, Blocks & GPT Model Tests
 │   ├── test_model_lifecycle.py # SFT, Loss Masking, Continued Pretraining Tests
 │   ├── test_tokenizer.py # BPE Tokenizer Tests
+│   ├── test_tools.py     # External Tool Registry & Endpoint Tests
 │   └── test_trainer.py   # Optimizer Decay Splitting, Scheduler & Checkpoint Tests
 ├── tokenizer/            # BPE Tokenizer
 │   ├── base_tokenizer.py # Abstract Base Class for Tokenizers
@@ -119,10 +128,10 @@ d:\Projects\my-gpt 2\
 │   ├── helpers.py        # Random seed setting and CUDA/CPU device detection
 │   ├── logger.py         # Structured Logging Utility
 │   ├── metrics.py        # Perplexity & Speed Throughput Metrics
-│   └── tools.py          # Tool Execution Framework (Web Search, Python REPL, Calculator)
+│   └── tools.py          # Extensible Tool Calling Registry (7 Tools)
 ├── web/                  # Next.js Web Studio Application
 │   ├── src/app/          # Next.js App Router Pages & Styles
-│   ├── src/components/   # Agent Studio, Chat, Header, Sidebar, Auth & Config Components
+│   ├── src/components/   # Tool Palette, Agent Studio, Chat, Header, Sidebar, Auth & Config
 │   ├── src/lib/          # Client API & Storage Utilities
 │   └── src/types/        # TypeScript Type Definitions
 ├── Dockerfile.api        # Multi-stage Dockerfile for FastAPI Python Backend
@@ -146,7 +155,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run pytest unit test suite (79 tests)
+# Run pytest unit test suite (83 tests)
 python -m pytest tests/ -v
 ```
 
@@ -185,9 +194,9 @@ For detailed production configuration, Nginx SSL proxy setup, and CUDA accelerat
 
 ## 🧪 Testing Summary
 
-Executed full test suite verifying all 79 tests:
+Executed full test suite verifying all 83 tests:
 
 ```powershell
 python -m pytest tests/ -v
 ```
-- **Status**: 79 passed in 31.36s
+- **Status**: 83 passed in 17.38s
