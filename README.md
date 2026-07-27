@@ -1,6 +1,6 @@
-# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & Enterprise Infrastructure
+# MyGPT: Custom GPT Multimodal Platform, Autonomous AI Agents & Cross-Platform Ecosystem
 
-A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, autonomous AI agents, external tool integration, response caching, enterprise security, and multi-container Docker/Kubernetes deployment.
+A production-grade, modular Python & PyTorch implementation of a GPT-style Large Language Model built completely from scratch without external Hugging Face model dependencies, featuring a FastAPI backend, a Next.js web application, mobile apps (Android/iOS), a desktop app (Electron), a browser extension (Manifest V3), autonomous AI agents, external tool integration, response caching, enterprise security, and multi-container Docker/Kubernetes deployment.
 
 ---
 
@@ -14,6 +14,11 @@ A production-grade, modular Python & PyTorch implementation of a GPT-style Large
   - **Multi-Head Causal Attention**: Batched parallel head projections ($Q, K, V \in \mathbb{R}^{B \times n_{\text{head}} \times T \times d_{\text{head}}}$) and output projection $W^O$.
   - **Transformer Decoder Stack**: Pre-LayerNorm residual architecture ($x \leftarrow x + \text{Attn}(\text{LN}_1(x))$ and $x \leftarrow x + \text{MLP}(\text{LN}_2(x))$).
   - **Complete GPT Model Architecture**: Configurable depth, head count, and dimension ($d_{\text{model}}$), weight tying between token embedding and LM head weights (`lm_head.weight = embedding.weight`), and cross-entropy loss computation.
+
+- **Multi-Platform Cross-Device Client Applications**:
+  - 📱 **Android & iOS Mobile App**: React Native / touch-optimized mobile chat UI, bottom tab bar navigation, and voice speech input (`mobile/`).
+  - 💻 **Cross-Platform Desktop App**: Electron application for Windows, macOS, and Linux with system tray menu, global toggle shortcut (`Ctrl+Shift+G` / `Cmd+Shift+G`), and native notifications (`desktop/`).
+  - 🌐 **Manifest V3 Browser Extension**: Chrome, Edge, Firefox, and Brave extension overlaying instant AI text generation & chat on any web page (`browser-extension/`).
 
 - **Enterprise Security & Threat Prevention**:
   - 🔐 **AES-256 Payload Encryption**: Symmetric Fernet encryption for data at rest (`utils/crypto.py`).
@@ -93,6 +98,11 @@ d:\Projects\my-gpt 2\
 │   ├── metrics.py        # Prometheus Metrics Exporter & Alerting
 │   ├── models_db.py      # Database ORM models (User, ApiKey, ChatSession, ChatMessage, UploadedFile)
 │   └── schemas.py        # Pydantic request/response schemas
+├── browser-extension/    # Manifest V3 Extension (Chrome, Edge, Firefox, Brave)
+│   ├── background.js     # Extension Service Worker
+│   ├── manifest.json     # Manifest V3 Schema & Permissions
+│   ├── popup.html        # Extension Popup Overlay Layout
+│   └── popup.js          # Extension API Connection Script
 ├── config/               # Model & Training Configuration
 │   ├── model_config.py   # GPTConfig dataclass & model presets (gpt_micro, gpt2_small)
 │   ├── train_config.py   # TrainConfig dataclass & training hyperparameters
@@ -102,6 +112,10 @@ d:\Projects\my-gpt 2\
 │   ├── dataloader.py     # DataLoader construction utilities
 │   ├── dataset.py        # GPTDataset (input x and right-shifted target y)
 │   └── preprocessor.py   # Memory-friendly tokenization & memmap creation
+├── desktop/              # Cross-Platform Electron Desktop Application
+│   ├── main.js           # Electron Main Process (Tray, Shortcuts, Windows)
+│   ├── package.json      # Desktop App Manifest
+│   └── preload.js        # Secure Context IPC Bridge
 ├── docker/               # Production Nginx & Container Config
 │   └── nginx.conf        # Nginx Reverse-Proxy Load Balancer
 ├── docs/                 # Production & Technical Documentation
@@ -110,6 +124,9 @@ d:\Projects\my-gpt 2\
 │   └── evaluation_report.md # Benchmark Metrics Report
 ├── k8s/                  # Kubernetes Auto-Scaling Manifests
 │   └── hpa.yaml          # Deployment & HorizontalPodAutoscaler (HPA)
+├── mobile/               # Android and iOS Mobile Application
+│   ├── App.tsx           # React Native Touch Chat UI & Bottom Navigation
+│   └── package.json      # Mobile App Manifest
 ├── models/               # PyTorch Model Architecture & Hardware Pool
 │   ├── attention.py      # Scaled Dot-Product & Multi-Head Causal Attention
 │   ├── embedding.py      # Token, Positional, Sinusoidal, and GPTEmbedding
@@ -123,9 +140,10 @@ d:\Projects\my-gpt 2\
 │   ├── deploy.sh         # POSIX Bash Deployment Script (Linux/macOS)
 │   ├── evaluate.py       # Model Perplexity & Throughput Evaluation Script
 │   └── train_better_model.py # CLI for SFT, Continued Pretraining & Domain Benchmarks
-├── tests/                # Comprehensive Test Suite (93 Pytest Unit Tests)
+├── tests/                # Comprehensive Test Suite (96 Pytest Unit Tests)
 │   ├── test_agents.py    # AI Agent ReAct Loop & Endpoint Tests
 │   ├── test_api.py       # API Endpoint Tests
+│   ├── test_clients.py   # Mobile, Desktop & Extension Integration Tests
 │   ├── test_dataset.py   # Dataset & DataLoader Tests
 │   ├── test_enterprise.py# Auth, DB, File RAG, Vision, Tools & Persona Tests
 │   ├── test_inference.py # Sampling, Beam Search & Streaming Tests
@@ -185,7 +203,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run pytest unit test suite (93 tests)
+# Run pytest unit test suite (96 tests)
 python -m pytest tests/ -v
 ```
 
@@ -225,9 +243,9 @@ For detailed production configuration, Nginx SSL proxy setup, and CUDA accelerat
 
 ## 🧪 Testing Summary
 
-Executed full test suite verifying all 93 tests:
+Executed full test suite verifying all 96 tests:
 
 ```powershell
 python -m pytest tests/ -v
 ```
-- **Status**: 93 passed in 17.33s
+- **Status**: 96 passed in 16.83s
