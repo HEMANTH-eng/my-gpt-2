@@ -1,0 +1,66 @@
+import argparse
+from pathlib import Path
+import sys
+import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config.model_config import GPTConfig
+from config.train_config import TrainConfig
+from dataset.curator import load_domain_dataset
+from models.gpt import GPT
+from tokenizer.bpe_tokenizer import BPETokenizer
+from training.continued_pretrain import ContinuedPretrainer
+from training.sft_trainer import SFTTrainer
+from utils.benchmarks import run_domain_benchmarks
+from utils.logger import get_logger
+
+logger = get_logger("train_better_model")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train Better GPT Models: Domain SFT, Continued Pretraining & Benchmarks")
+    parser.add_argument("--mode", type=str, choices=["sft", "pretrain_continue", "benchmark"], default="sft", help="Execution mode")
+    parser.add_argument("--domain", type=str, choices=["coding", "medical", "legal", "math"], default="coding", help="Target domain preset")
+    parser.add_argument("--epochs", type=int, default=3, help="Training epochs")
+    parser.add_argument("--checkpoint", type=str, default="", help="Input checkpoint path to resume/fine-tune")
+    args = parser.parse_args()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Train lightweight base tokenizer
+    corpus = "Building high quality domain specific GPT language models for coding, medical, legal, and mathematics."
+    tokenizer = BPETokenizer(vocab_size=300)
+    tokenizer.train(corpus)
+
+    config = GPTConfig.gpt_micro(vocab_size=len(tokenizer.vocab))
+    model = GPT(config)
+
+    if args.checkpoint and Path(args.checkpoint).exists():
+        logger.info(f"Loading base checkpoint weights from {args.checkpoint}...")
+        ckpt = torch.load(args.checkpoint, map_location=device)
+        model.load_state_dict(ckpt["model_state_dict"])
+
+    if args.mode == "sft":
+        logger.info(f"=== Running Supervised Fine-Tuning (SFT) for Domain: {args.domain} ===")
+        sft_trainer = SFTTrainer(model=model, tokenizer=tokenizer, device=device)
+        best_loss = sft_trainer.fine_tune_domain(domain=args.domain, epochs=args.epochs)
+        logger.info(f"Domain '{args.domain}' SFT complete. Best Response Loss: {best_loss:.4f}")
+
+    elif args.mode == "pretrain_continue":
+        logger.info("=== Running Continued Pretraining Pipeline ===")
+        pretrainer = ContinuedPretrainer(model=model, device=device)
+        dummy_tokens = torch.randint(0, config.vocab_size, (200,))
+        loss = pretrainer.train_on_corpus(token_ids=dummy_tokens, epochs=args.epochs)
+        logger.info(f"Continued pretraining complete. Loss: {loss:.4f}")
+
+    elif args.mode == "benchmark":
+        logger.info("=== Running Domain Benchmark Matrix ===")
+        results = run_domain_benchmarks(model=model, tokenizer=tokenizer, device=device)
+        print("\n=== Domain Benchmark Matrix Results ===")
+        for domain_name, score in results.items():
+            print(f"  • {domain_name.replace('_', ' ').title()}: {score:.1f}%")
+
+
+if __name__ == "__main__":
+    main()

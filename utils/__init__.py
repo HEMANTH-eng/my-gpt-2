@@ -1,3 +1,4 @@
+from utils.benchmarks import run_domain_benchmarks
 from utils.helpers import get_device, set_seed
 from utils.logger import get_logger
 from utils.metrics import (
@@ -13,5 +14,7 @@ __all__ = [
     "compute_perplexity",
     "evaluate_loss_and_perplexity",
     "benchmark_generation_speed",
+    "run_domain_benchmarks",
 ]
+
 
