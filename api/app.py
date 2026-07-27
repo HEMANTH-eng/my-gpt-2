@@ -1,16 +1,20 @@
 from contextlib import asynccontextmanager
 import io
 from typing import Dict, List, Optional
-
 from fastapi import FastAPI, File, HTTPException, UploadFile, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import torch
 
+from agents.agent_manager import AgentManager
 from api.auth import router as auth_router, get_current_user
 from api.database import get_db, init_db
 from api.models_db import ChatMessageDB, ChatSessionDB, UploadedFileDB, User
 from api.schemas import (
+    AgentExecuteRequest,
+    AgentExecuteResponse,
+    AgentStepResponse,
+    AgentTypeResponse,
     ChatMessage,
     ChatRequest,
     ChatResponse,
@@ -33,6 +37,7 @@ from utils.tools import process_tool_calls
 
 logger = get_logger("api_server")
 
+agent_manager_instance: Optional[AgentManager] = None
 generator_instance: Optional[GPTGenerator] = None
 model_instance: Optional[GPT] = None
 multimodal_model: Optional[MultimodalGPT] = None
@@ -42,7 +47,7 @@ tokenizer_instance: Optional[BPETokenizer] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI Lifespan context manager handling database, model, and tokenizer initialization."""
-    global generator_instance, model_instance, multimodal_model, tokenizer_instance
+    global agent_manager_instance, generator_instance, model_instance, multimodal_model, tokenizer_instance
     logger.info("Initializing MyGPT database, model, and tokenizer...")
 
     # Initialize SQLite Database Tables
@@ -65,10 +70,13 @@ async def lifespan(app: FastAPI):
         device=device,
     )
 
+    agent_manager_instance = AgentManager(model=model_instance, tokenizer=tokenizer_instance)
+
     logger.info(f"API Model Server initialized successfully on device '{device}'.")
     yield
 
     logger.info("Shutting down API Model Server...")
+    agent_manager_instance = None
     generator_instance = None
     model_instance = None
     multimodal_model = None
@@ -78,7 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MyGPT API Server",
     version="2.0.0",
-    description="Enterprise REST API server exposing custom PyTorch GPT model with Auth, Chat History, File RAG, Vision, Personas, and Tools.",
+    description="Enterprise REST API server exposing custom PyTorch GPT model with Auth, Autonomous AI Agents, Chat History, File RAG, Vision, Personas, and Tools.",
     lifespan=lifespan,
 )
 
@@ -133,7 +141,6 @@ async def get_model_info() -> ModelInfoResponse:
     )
 
 
-
 @app.get("/api/v1/personas", response_model=List[PersonaResponse], tags=["Personas"])
 async def get_personas() -> List[PersonaResponse]:
     """Returns available AI Personalities."""
@@ -141,6 +148,64 @@ async def get_personas() -> List[PersonaResponse]:
         PersonaResponse(id=p.id, name=p.name, icon=p.icon, description=p.description)
         for p in list_personas()
     ]
+
+
+@app.get("/api/v1/agents/types", response_model=List[AgentTypeResponse], tags=["AI Agents"])
+async def get_agent_types() -> List[AgentTypeResponse]:
+    """Returns available autonomous AI Agent types."""
+    if agent_manager_instance is None:
+        mgr = AgentManager()
+    else:
+        mgr = agent_manager_instance
+
+    return [
+        AgentTypeResponse(
+            agent_type=info["agent_type"],
+            name=info["name"],
+            description=info["description"],
+        )
+        for info in mgr.list_agent_types()
+    ]
+
+
+@app.post("/api/v1/agents/execute", response_model=AgentExecuteResponse, tags=["AI Agents"])
+async def execute_agent_task(request: AgentExecuteRequest) -> AgentExecuteResponse:
+    """Executes a task goal using specialized Autonomous AI Agents."""
+    try:
+        if agent_manager_instance is None:
+            mgr = AgentManager(model=model_instance, tokenizer=tokenizer_instance)
+        else:
+            mgr = agent_manager_instance
+
+        res = mgr.execute_agent_task(
+            agent_type=request.agent_type,
+            goal=request.goal,
+            parameters=request.parameters,
+        )
+
+        steps_res = [
+            AgentStepResponse(
+                step_index=s.step_index,
+                thought=s.thought,
+                action=s.action,
+                observation=s.observation,
+                timestamp=s.timestamp,
+            )
+            for s in res.steps
+        ]
+
+        return AgentExecuteResponse(
+            task_id=res.task_id,
+            agent_type=res.agent_type,
+            goal=res.goal,
+            status=res.status,
+            steps=steps_res,
+            final_output=res.final_output,
+            artifacts=res.artifacts,
+        )
+    except Exception as e:
+        logger.error(f"Error executing agent task: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent execution failed: {str(e)}")
 
 
 @app.post("/api/v1/upload", response_model=UploadedFileResponse, tags=["Document Processing"])

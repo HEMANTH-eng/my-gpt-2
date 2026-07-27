@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+
 
 
 class GenerateRequest(BaseModel):
@@ -94,6 +95,45 @@ class UploadedFileResponse(BaseModel):
     file_type: str
     file_size: int
     text_preview: str
+
+
+class AgentExecuteRequest(BaseModel):
+    """Request schema for executing an AI Agent task."""
+
+    agent_type: str = Field(..., description="Target agent type ('coding', 'research', 'email', 'calendar', 'browser', 'data_analysis').")
+    goal: str = Field(..., description="High-level goal or task prompt for the agent to accomplish.")
+    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Optional task parameters.")
+
+
+class AgentStepResponse(BaseModel):
+    """Schema for an individual agent execution step."""
+
+    step_index: int
+    thought: str
+    action: str
+    observation: str
+    timestamp: str
+
+
+class AgentExecuteResponse(BaseModel):
+    """Response schema for agent task execution."""
+
+    task_id: str
+    agent_type: str
+    goal: str
+    status: str
+    steps: List[AgentStepResponse]
+    final_output: str
+    artifacts: Optional[Dict[str, Any]] = None
+
+
+class AgentTypeResponse(BaseModel):
+    """Schema for available agent type metadata."""
+
+    agent_type: str
+    name: str
+    description: str
+
 
 
 
