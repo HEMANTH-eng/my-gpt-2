@@ -151,54 +151,53 @@ class SingleHeadCausalSelfAttention(nn.Module):
         return self.out_proj(context)
 
 
-class MultiHeadCausalAttention(nn.Module):
-    """Multi-Head Causal Self-Attention layer for GPT architectures.
+def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
+    """Repeats Key/Value tensor heads for Grouped Query Attention (GQA).
 
-    Splits the feature dimension d_model into n_head parallel heads of dimension
-    d_head = d_model // n_head, allowing the model to jointly attend to information
-    from different representation subspaces at different positions.
+    Args:
+        x: Key/Value tensor of shape (batch_size, n_kv_head, seq_len, head_dim).
+        n_rep: Number of times to replicate each KV head to match Query head count.
 
-    Computes mathematically:
-        MultiHead(Q, K, V) = Concat(head_1, ..., head_h) @ W_o
-        where head_i = Attention(Q @ W_i^Q, K @ W_i^K, V @ W_i^V)
-
-    Key Features & Optimizations:
-        - Parallel tensor operations: Reshapes (B, T, d_model) to (B, n_head, T, d_head).
-        - Batched dot-product attention computed across all heads concurrently.
-        - Causal masking: Prevents token position i from attending to future positions j > i.
-        - Configurable linear projection weights and dropout.
+    Returns:
+        Expanded tensor of shape (batch_size, n_kv_head * n_rep, seq_len, head_dim).
     """
+    if n_rep == 1:
+        return x
+    batch_size, n_kv_head, seq_len, head_dim = x.shape
+    return (
+        x[:, :, None, :, :]
+        .expand(batch_size, n_kv_head, n_rep, seq_len, head_dim)
+        .reshape(batch_size, n_kv_head * n_rep, seq_len, head_dim)
+    )
+
+
+class MultiHeadCausalAttention(nn.Module):
+    """Multi-Head & Grouped-Query Causal Attention (MHA/GQA) with RoPE and KV-Cache support."""
 
     def __init__(
         self,
         d_model: int,
         n_head: int,
+        n_kv_head: Optional[int] = None,
         dropout: float = 0.0,
         bias: bool = False,
     ) -> None:
-        """Initializes MultiHeadCausalAttention.
-
-        Args:
-            d_model: Model feature dimension size (e.g., 768).
-            n_head: Number of parallel attention heads (e.g., 12).
-            dropout: Attention dropout probability.
-            bias: Whether linear projections include additive bias parameters.
-        """
         super().__init__()
         if d_model % n_head != 0:
             raise ValueError(
-                f"d_model ({d_model}) must be divisible by n_head ({n_head}). "
-                f"Remainder: {d_model % n_head}"
+                f"d_model ({d_model}) must be divisible by n_head ({n_head})."
             )
 
         self.d_model = d_model
         self.n_head = n_head
+        self.n_kv_head = n_kv_head if n_kv_head is not None else n_head
+        self.n_rep = self.n_head // self.n_kv_head
         self.d_head = d_model // n_head
 
-        # Linear projections for Query, Key, Value, and Output
-        self.q_proj = nn.Linear(d_model, d_model, bias=bias)
-        self.k_proj = nn.Linear(d_model, d_model, bias=bias)
-        self.v_proj = nn.Linear(d_model, d_model, bias=bias)
+        # Projections
+        self.q_proj = nn.Linear(d_model, self.n_head * self.d_head, bias=bias)
+        self.k_proj = nn.Linear(d_model, self.n_kv_head * self.d_head, bias=bias)
+        self.v_proj = nn.Linear(d_model, self.n_kv_head * self.d_head, bias=bias)
         self.out_proj = nn.Linear(d_model, d_model, bias=bias)
 
         self.attention = ScaledDotProductAttention(dropout=dropout)
@@ -206,53 +205,67 @@ class MultiHeadCausalAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
+        rope_cos: Optional[torch.Tensor] = None,
+        rope_sin: Optional[torch.Tensor] = None,
+        kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
         return_attn_weights: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Forward pass for multi-head causal self-attention.
-
-        Args:
-            x: Input embeddings tensor with shape (batch_size, seq_len, d_model).
-            return_attn_weights: If True, also returns attention weights of shape (batch_size, n_head, seq_len, seq_len).
-
-        Returns:
-            Output context tensor of shape (batch_size, seq_len, d_model).
-            Optionally returns (output, attn_weights) if return_attn_weights is True.
-        """
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]]:
         if x.dim() != 3:
-            raise ValueError(f"Input x must be a 3D tensor of shape (B, T, d_model), got {x.dim()}D")
+            raise ValueError(f"Input x must be 3D (B, T, d_model), got {x.dim()}D")
 
         batch_size, seq_len, d_model = x.size()
         if d_model != self.d_model:
-            raise ValueError(f"Input d_model ({d_model}) does not match expected d_model ({self.d_model})")
+            raise ValueError(f"Input d_model ({d_model}) does not match expected ({self.d_model})")
 
-        # Step 1: Project inputs to Query, Key, and Value spaces: (B, T, d_model) -> (B, T, d_model)
-        q = self.q_proj(x)
-        k = self.k_proj(x)
-        v = self.v_proj(x)
+        # 1. Linear Projections
+        q = self.q_proj(x).view(batch_size, seq_len, self.n_head, self.d_head).transpose(1, 2)
+        k = self.k_proj(x).view(batch_size, seq_len, self.n_kv_head, self.d_head).transpose(1, 2)
+        v = self.v_proj(x).view(batch_size, seq_len, self.n_kv_head, self.d_head).transpose(1, 2)
 
-        # Step 2: Reshape and transpose for multi-head parallel computation:
-        # (B, T, d_model) -> (B, T, n_head, d_head) -> (B, n_head, T, d_head)
-        q = q.view(batch_size, seq_len, self.n_head, self.d_head).transpose(1, 2)
-        k = k.view(batch_size, seq_len, self.n_head, self.d_head).transpose(1, 2)
-        v = v.view(batch_size, seq_len, self.n_head, self.d_head).transpose(1, 2)
+        # 2. Apply RoPE if provided
+        if rope_cos is not None and rope_sin is not None:
+            from models.layers import apply_rotary_pos_emb
+            pos_offset = kv_cache[0].size(-2) if (kv_cache is not None and kv_cache[0] is not None) else 0
+            cos = rope_cos[pos_offset : pos_offset + seq_len]
+            sin = rope_sin[pos_offset : pos_offset + seq_len]
+            q, k = apply_rotary_pos_emb(q, k, cos, sin)
 
-        # Step 3: Create 4D upper-triangular causal mask: (1, 1, seq_len, seq_len)
-        causal_mask = torch.triu(
-            torch.ones((seq_len, seq_len), device=x.device, dtype=torch.bool), diagonal=1
-        ).unsqueeze(0).unsqueeze(0)
+        # 3. Key-Value Caching
+        if kv_cache is not None and kv_cache[0] is not None:
+            past_k, past_v = kv_cache
+            k = torch.cat([past_k, k], dim=-2)
+            v = torch.cat([past_v, v], dim=-2)
 
-        # Step 4: Scaled dot-product attention across all heads in parallel
-        # context: (B, n_head, T, d_head), attn_weights: (B, n_head, T, T)
-        context, attn_weights = self.attention(q, k, v, mask=causal_mask)
+        new_kv_cache = (k, v)
 
-        # Step 5: Concatenate head outputs: (B, n_head, T, d_head) -> (B, T, n_head, d_head) -> (B, T, d_model)
+        # 4. Grouped Query Attention (repeat KV heads if GQA)
+        keys_repeat = repeat_kv(k, self.n_rep)
+        values_repeat = repeat_kv(v, self.n_rep)
+
+        # 5. Causal Masking
+        total_seq_len = keys_repeat.size(-2)
+        if seq_len > 1:
+            causal_mask = torch.triu(
+                torch.ones((seq_len, total_seq_len), device=x.device, dtype=torch.bool),
+                diagonal=total_seq_len - seq_len + 1,
+            ).unsqueeze(0).unsqueeze(0)
+        else:
+            causal_mask = None
+
+        # 6. Attention computation
+        context, attn_weights = self.attention(q, keys_repeat, values_repeat, mask=causal_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
 
-        # Step 6: Output linear projection
         out = self.out_proj(context)
+
+        if use_cache or kv_cache is not None:
+            return out, new_kv_cache
 
         if return_attn_weights:
             return out, attn_weights
         return out
+
+
 
 

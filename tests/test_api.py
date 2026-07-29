@@ -21,7 +21,7 @@ def test_info_endpoint():
         response = client.get("/api/v1/info")
         assert response.status_code == 200
         data = response.json()
-        assert data["model_name"] == "MyGPT-Micro"
+        assert data["model_name"] == "Novexa-Micro"
         assert data["num_parameters"] > 0
         assert data["vocab_size"] > 0
         assert data["d_model"] == 128

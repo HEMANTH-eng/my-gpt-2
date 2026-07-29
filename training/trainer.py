@@ -109,41 +109,41 @@ class Trainer:
         return avg_val_loss, perplexity
 
     def train_epoch(self) -> float:
-        """Executes training over a single epoch.
-
-        Returns:
-            Average training loss over the epoch.
-        """
+        """Executes training over a single epoch with Gradient Accumulation support."""
         self.model.train()
         total_loss = 0.0
         total_batches = 0
+        accum_steps = getattr(self.config, "gradient_accumulation_steps", 1)
 
-        for x, y in self.train_loader:
+        self.optimizer.zero_grad(set_to_none=True)
+
+        for step_idx, (x, y) in enumerate(self.train_loader):
             x = x.to(self.device, non_blocking=True)
             y = y.to(self.device, non_blocking=True)
 
             # Update Learning Rate via Scheduler
             lr = self.scheduler.step(self.global_step)
 
-            # Zero Gradients
-            self.optimizer.zero_grad(set_to_none=True)
-
             # Forward pass with AMP autocast
             device_type = "cuda" if self.device.startswith("cuda") else "cpu"
             with torch.amp.autocast(device_type=device_type, enabled=self.use_amp):
                 _, loss = self.model(x, targets=y)
+                scaled_loss = loss / accum_steps
 
             # Backward pass with GradScaler
-            self.scaler.scale(loss).backward()
+            self.scaler.scale(scaled_loss).backward()
 
-            # Unscale and clip gradients
-            if self.config.grad_clip > 0.0:
-                self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
+            # Optimizer step every accum_steps
+            if (step_idx + 1) % accum_steps == 0 or (step_idx + 1) == len(self.train_loader):
+                # Unscale and clip gradients
+                if self.config.grad_clip > 0.0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
 
-            # Optimizer Step & Scaler Update
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+                # Optimizer Step & Scaler Update
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad(set_to_none=True)
 
             total_loss += loss.item()
             total_batches += 1
@@ -153,6 +153,7 @@ class Trainer:
             if self.writer is not None and self.global_step % 10 == 0:
                 self.writer.add_scalar("Train/Loss", loss.item(), self.global_step)
                 self.writer.add_scalar("Train/LearningRate", lr, self.global_step)
+
 
             # Evaluation Interval
             if self.val_loader is not None and self.global_step % self.config.eval_interval == 0:

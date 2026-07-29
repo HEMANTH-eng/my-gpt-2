@@ -26,14 +26,14 @@ def run_evaluation(
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Starting evaluation benchmark on device '{device}'...")
 
-    # Instantiate model
-    config = GPTConfig.gpt_micro(vocab_size=300)
-    model = GPT(config)
+    from models.model_manager import ModelManager
+    model_mgr = ModelManager("./checkpoints")
+    model, config, meta = model_mgr.load_safe(
+        checkpoint_path=checkpoint_path if checkpoint_path else None,
+        config=GPTConfig.gpt_micro(vocab_size=300),
+        device=device,
+    )
 
-    if checkpoint_path and Path(checkpoint_path).exists():
-        logger.info(f"Loading checkpoint weights from {checkpoint_path}...")
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(checkpoint["model_state_dict"])
 
     # Create dummy evaluation dataset
     dummy_tokens = torch.randint(0, config.vocab_size, (200,)).numpy()

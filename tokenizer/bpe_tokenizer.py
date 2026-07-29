@@ -56,8 +56,9 @@ class BPETokenizer(BaseTokenizer):
             special_tokens: List of special token strings (e.g., ["<pad>", "<unk>", "<bos>", "<eos>"]).
         """
         if special_tokens is None:
-            special_tokens = ["<pad>", "<unk>", "<bos>", "<eos>"]
+            special_tokens = ["<pad>", "<unk>", "<bos>", "<eos>", "<|endoftext|>", "<|im_start|>", "<|im_end|>"]
         self.target_vocab_size = vocab_size
+
         self.vocab: Dict[int, bytes] = {}
         self.merges: Dict[Tuple[int, int], int] = {}
         self.special_tokens: Dict[str, int] = {}

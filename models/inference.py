@@ -17,17 +17,32 @@ def sample_next_token(
     top_p: Optional[float] = None,
     greedy: bool = False,
     unprintable_token_ids: Optional[List[int]] = None,
+    generated_tokens: Optional[torch.Tensor] = None,
+    repetition_penalty: float = 1.0,
+    presence_penalty: float = 0.0,
+    frequency_penalty: float = 0.0,
 ) -> torch.Tensor:
-    """Samples next token ID from 2D logits tensor of shape (batch_size, vocab_size).
-
-    Supports:
-        - Greedy decoding (argmax)
-        - Temperature scaling
-        - Top-k truncation
-        - Top-p (Nucleus) cumulative probability sampling
-        - Unprintable byte token suppression
-    """
+    """Samples next token ID with penalties, top-k/p, and temperature scaling."""
     logits = logits.clone()
+
+    # Apply Penalties based on prior token history
+    if generated_tokens is not None:
+        for b in range(logits.size(0)):
+            tokens = generated_tokens[b].tolist()
+            counts: Dict[int, int] = {}
+            for t in tokens:
+                counts[t] = counts.get(t, 0) + 1
+
+            for t, count in counts.items():
+                if t < logits.size(-1):
+                    if repetition_penalty != 1.0:
+                        if logits[b, t] < 0:
+                            logits[b, t] *= repetition_penalty
+                        else:
+                            logits[b, t] /= repetition_penalty
+
+                    logits[b, t] -= (presence_penalty + frequency_penalty * count)
+
     if unprintable_token_ids:
         logits[:, unprintable_token_ids] = -float("Inf")
 
@@ -47,9 +62,7 @@ def sample_next_token(
         sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
         cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
-        # Remove tokens with cumulative probability above top_p threshold
         sorted_indices_to_remove = cumulative_probs > top_p
-        # Shift mask right so the first token above top_p is kept
         sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
         sorted_indices_to_remove[..., 0] = False
 
@@ -59,6 +72,7 @@ def sample_next_token(
 
     probs = F.softmax(logits, dim=-1)
     return torch.multinomial(probs, num_samples=1)
+
 
 
 class GPTGenerator:
