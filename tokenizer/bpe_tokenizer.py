@@ -55,6 +55,8 @@ class BPETokenizer(BaseTokenizer):
             vocab_size: Target vocabulary size.
             special_tokens: List of special token strings (e.g., ["<pad>", "<unk>", "<bos>", "<eos>"]).
         """
+        if special_tokens is None:
+            special_tokens = ["<pad>", "<unk>", "<bos>", "<eos>"]
         self.target_vocab_size = vocab_size
         self.vocab: Dict[int, bytes] = {}
         self.merges: Dict[Tuple[int, int], int] = {}
@@ -62,8 +64,26 @@ class BPETokenizer(BaseTokenizer):
         self.inverse_special_tokens: Dict[int, str] = {}
         self._init_base_vocab(special_tokens)
 
+    @property
+    def eos_token_id(self) -> Optional[int]:
+        return self.special_tokens.get("<eos>", None)
+
+    @property
+    def bos_token_id(self) -> Optional[int]:
+        return self.special_tokens.get("<bos>", None)
+
+    @property
+    def pad_token_id(self) -> Optional[int]:
+        return self.special_tokens.get("<pad>", None)
+
+    @property
+    def unk_token_id(self) -> Optional[int]:
+        return self.special_tokens.get("<unk>", None)
+
     def _init_base_vocab(self, special_tokens: Optional[List[str]] = None) -> None:
         """Initializes 256 base UTF-8 byte tokens and optional special tokens."""
+        if special_tokens is None:
+            special_tokens = ["<pad>", "<unk>", "<bos>", "<eos>"]
         self.vocab = {}
         self.merges = {}
         self.special_tokens = {}
@@ -74,14 +94,13 @@ class BPETokenizer(BaseTokenizer):
             self.vocab[i] = bytes([i])
 
         # 2. Special tokens starting at ID 256
-        if special_tokens:
-            current_id = 256
-            for st in special_tokens:
-                if st not in self.special_tokens:
-                    self.special_tokens[st] = current_id
-                    self.inverse_special_tokens[current_id] = st
-                    self.vocab[current_id] = st.encode("utf-8")
-                    current_id += 1
+        current_id = 256
+        for st in special_tokens:
+            if st not in self.special_tokens:
+                self.special_tokens[st] = current_id
+                self.inverse_special_tokens[current_id] = st
+                self.vocab[current_id] = st.encode("utf-8")
+                current_id += 1
 
     def _read_corpus(self, files_or_text: Union[List[str], str]) -> str:
         """Helper to load text from a string, a file path, or a list of file paths."""
@@ -234,8 +253,10 @@ class BPETokenizer(BaseTokenizer):
                 byte_parts.append(self.inverse_special_tokens[token_id].encode("utf-8"))
             elif token_id in self.vocab:
                 byte_parts.append(self.vocab[token_id])
+            elif "<unk>" in self.special_tokens:
+                byte_parts.append(b"<unk>")
             else:
-                raise ValueError(f"Token ID {token_id} not found in tokenizer vocabulary.")
+                byte_parts.append(b"?")
 
         raw_bytes = b"".join(byte_parts)
         return raw_bytes.decode("utf-8", errors="replace")

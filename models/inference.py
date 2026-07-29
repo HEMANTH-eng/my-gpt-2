@@ -16,6 +16,7 @@ def sample_next_token(
     top_k: Optional[int] = None,
     top_p: Optional[float] = None,
     greedy: bool = False,
+    unprintable_token_ids: Optional[List[int]] = None,
 ) -> torch.Tensor:
     """Samples next token ID from 2D logits tensor of shape (batch_size, vocab_size).
 
@@ -24,7 +25,12 @@ def sample_next_token(
         - Temperature scaling
         - Top-k truncation
         - Top-p (Nucleus) cumulative probability sampling
+        - Unprintable byte token suppression
     """
+    logits = logits.clone()
+    if unprintable_token_ids:
+        logits[:, unprintable_token_ids] = -float("Inf")
+
     if greedy or temperature == 0.0:
         return torch.argmax(logits, dim=-1, keepdim=True)
 
@@ -75,6 +81,16 @@ class GPTGenerator:
         self.model = model.to(self.device)
         self.model.eval()
         self.tokenizer = tokenizer
+        self.unprintable_token_ids: List[int] = []
+
+        if self.tokenizer and hasattr(self.tokenizer, "vocab"):
+            for token_id, b_val in self.tokenizer.vocab.items():
+                try:
+                    s = b_val.decode("utf-8")
+                    if not all(c.isprintable() or c in "\n\r\t" for c in s):
+                        self.unprintable_token_ids.append(token_id)
+                except Exception:
+                    self.unprintable_token_ids.append(token_id)
 
     @torch.no_grad()
     def generate(
@@ -111,6 +127,9 @@ class GPTGenerator:
             idx = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
         else:
             idx = prompt.to(self.device)
+
+        if eos_token_id is None and self.tokenizer is not None:
+            eos_token_id = getattr(self.tokenizer, "eos_token_id", None)
 
         if num_beams > 1:
             generated_idx = self._beam_search(
@@ -156,6 +175,7 @@ class GPTGenerator:
                 top_k=top_k,
                 top_p=top_p,
                 greedy=greedy,
+                unprintable_token_ids=self.unprintable_token_ids,
             )
 
             idx = torch.cat((idx, next_token), dim=1)
@@ -241,6 +261,7 @@ class GPTGenerator:
                 top_k=top_k,
                 top_p=top_p,
                 greedy=greedy,
+                unprintable_token_ids=self.unprintable_token_ids,
             )
 
             idx = torch.cat((idx, next_token), dim=1)

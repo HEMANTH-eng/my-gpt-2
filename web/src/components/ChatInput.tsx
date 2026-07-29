@@ -131,7 +131,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask MyGPT anything... (Press Enter to send, Shift+Enter for new line)"
+          placeholder="Ask Novexa AI anything... (Press Enter to send, Shift+Enter for new line)"
           disabled={isLoading}
           rows={2}
           className="w-full bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none pr-24"

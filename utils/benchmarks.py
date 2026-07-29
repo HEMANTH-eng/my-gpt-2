@@ -1,7 +1,6 @@
 from typing import Any, Dict
 import torch
 
-from models.inference import GPTGenerator
 from utils.logger import get_logger
 
 logger = get_logger("domain_benchmarks")
@@ -22,6 +21,8 @@ def run_domain_benchmarks(
     Returns:
         Dictionary of score percentages per domain (0.0 to 100.0%).
     """
+    from models.inference import GPTGenerator
+
     logger.info("Executing Domain Benchmark Evaluation Suite...")
     generator = GPTGenerator(model=model, tokenizer=tokenizer, device=device)
 

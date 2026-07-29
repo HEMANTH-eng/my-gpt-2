@@ -62,7 +62,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
           <h3 className="font-semibold text-zinc-100 text-sm">
-            {isRegister ? 'Create Account' : 'Sign In to MyGPT'}
+            {isRegister ? 'Create Account' : 'Sign In to Novexa AI'}
           </h3>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-200 text-xs">✕</button>
         </div>

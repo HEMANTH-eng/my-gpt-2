@@ -19,8 +19,9 @@ PERSONAS: Dict[str, Persona] = {
         name="General Assistant",
         icon="🤖",
         description="Balanced, helpful, and concise AI assistant for general tasks.",
-        system_prompt="You are MyGPT, a helpful, balanced, and concise AI assistant.",
+        system_prompt="You are Novexa AI, a helpful, balanced, and concise AI assistant.",
     ),
+
     "code_architect": Persona(
         id="code_architect",
         name="Senior Code Architect",

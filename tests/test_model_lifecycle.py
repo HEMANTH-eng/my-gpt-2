@@ -27,14 +27,18 @@ def test_dataset_curator_and_sft_dataset():
     assert (y[:3] == -100).all()
 
 
-def test_sft_trainer_fine_tuning():
+def test_sft_trainer_fine_tuning(tmp_path):
+    from config.train_config import TrainConfig
     config = GPTConfig.gpt_micro(vocab_size=260)
     model = GPT(config)
 
     tokenizer = BPETokenizer(vocab_size=260)
     tokenizer.train("def fibonacci(n): return n")
 
-    sft_trainer = SFTTrainer(model=model, tokenizer=tokenizer, device="cpu")
+    train_config = TrainConfig.micro_config()
+    train_config.checkpoint_dir = str(tmp_path)
+
+    sft_trainer = SFTTrainer(model=model, tokenizer=tokenizer, config=train_config, device="cpu")
     best_loss = sft_trainer.fine_tune_domain(domain="coding", epochs=1, batch_size=1)
 
     assert best_loss > 0.0

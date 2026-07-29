@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
-DB_PATH = Path("mygpt.db")
+DB_PATH = Path("novexa.db")
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(

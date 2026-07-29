@@ -5,6 +5,10 @@ from sqlalchemy.orm import relationship
 from api.database import Base
 
 
+def _utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class User(Base):
     """User account ORM database model."""
 
@@ -15,7 +19,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="user", nullable=False)  # 'admin', 'user', 'guest'
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
     sessions = relationship("ChatSessionDB", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("ApiKeyDB", back_populates="user", cascade="all, delete-orphan")
@@ -32,7 +36,7 @@ class ApiKeyDB(Base):
     key_hash = Column(String(255), nullable=False, index=True)
     prefix = Column(String(20), nullable=False)
     scopes = Column(String(255), default="read,write", nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
     user = relationship("User", back_populates="api_keys")
 
@@ -45,8 +49,8 @@ class ChatSessionDB(Base):
     id = Column(String(50), primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     title = Column(String(255), default="New Chat", nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 
     user = relationship("User", back_populates="sessions")
     messages = relationship("ChatMessageDB", back_populates="session", cascade="all, delete-orphan")
@@ -61,7 +65,7 @@ class ChatMessageDB(Base):
     session_id = Column(String(50), ForeignKey("chat_sessions.id"), nullable=False)
     role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system'
     content = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=_utc_now)
 
     session = relationship("ChatSessionDB", back_populates="messages")
 
@@ -77,4 +81,4 @@ class UploadedFileDB(Base):
     file_type = Column(String(20), nullable=False)
     file_size = Column(Integer, nullable=False)
     content_text = Column(Text, nullable=False)
-    uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
+    uploaded_at = Column(DateTime, default=_utc_now)

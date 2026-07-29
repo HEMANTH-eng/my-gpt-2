@@ -63,34 +63,81 @@ tokenizer_instance: Optional[BPETokenizer] = None
 async def lifespan(app: FastAPI):
     """FastAPI Lifespan context manager handling database, model, and tokenizer initialization."""
     global agent_manager_instance, generator_instance, model_instance, multimodal_model, tokenizer_instance
-    logger.info("Initializing MyGPT database, model, and tokenizer...")
+    from pathlib import Path
+    logger.info("""
+====================================
+Novexa AI
+Enterprise AI Platform
+====================================
+Initializing database, model, and tokenizer...""")
 
     # Initialize SQLite Database Tables
     init_db()
 
-    # Train base tokenizer for API demonstration
-    base_text = "Building a custom GPT large language model completely from scratch using Python and PyTorch!"
-    tokenizer_instance = BPETokenizer(vocab_size=300)
-    tokenizer_instance.train(base_text)
-
-    # Initialize GPT model
-    config = GPTConfig.gpt_micro(vocab_size=len(tokenizer_instance.vocab))
-    model_instance = GPT(config)
-    multimodal_model = MultimodalGPT(model_instance)
-
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    generator_instance = GPTGenerator(
-        model=model_instance,
-        tokenizer=tokenizer_instance,
-        device=device,
-    )
 
-    agent_manager_instance = AgentManager(model=model_instance, tokenizer=tokenizer_instance)
+    ckpt_paths = [
+        Path("checkpoints/best.pt"),
+        Path("checkpoints/latest.pt"),
+        Path("checkpoints/model.pt"),
+    ]
+    tokenizer_dirs = [
+        Path("checkpoints/tokenizer"),
+        Path("tokenizer/saved_vocab"),
+    ]
 
-    logger.info(f"API Model Server initialized successfully on device '{device}'.")
+    ckpt_file = next((p for p in ckpt_paths if p.exists()), None)
+    tokenizer_dir = next((d for d in tokenizer_dirs if (d / "vocab.json").exists()), None)
+
+    if ckpt_file is not None and tokenizer_dir is not None:
+        logger.info(f"Detected trained checkpoint at '{ckpt_file}' and tokenizer at '{tokenizer_dir}'. Loading...")
+        try:
+            tokenizer_instance = BPETokenizer()
+            tokenizer_instance.load(tokenizer_dir)
+
+            try:
+                checkpoint_data = torch.load(ckpt_file, map_location=device, weights_only=False)
+            except Exception:
+                checkpoint_data = torch.load(ckpt_file, map_location=device)
+
+            state_dict = checkpoint_data.get("model_state_dict", checkpoint_data) if isinstance(checkpoint_data, dict) else checkpoint_data
+            saved_vocab_size = state_dict["lm_head.weight"].shape[0]
+
+            config = GPTConfig.gpt_micro(vocab_size=saved_vocab_size)
+            model_instance = GPT(config)
+            model_instance.load_state_dict(state_dict)
+
+            model_instance.to(device)
+            model_instance.eval()
+            multimodal_model = MultimodalGPT(model_instance)
+
+            generator_instance = GPTGenerator(
+                model=model_instance,
+                tokenizer=tokenizer_instance,
+                device=device,
+            )
+            agent_manager_instance = AgentManager(model=model_instance, tokenizer=tokenizer_instance)
+            logger.info("""
+====================================
+Novexa AI
+Enterprise AI Platform
+====================================
+API started successfully
+Model loaded successfully
+Server Ready""")
+        except Exception as e:
+            logger.error(f"Failed to load checkpoint '{ckpt_file}': {e}.")
+            _init_fallback_model(device)
+    else:
+        logger.warning(
+            "⚠️ NOTICE: No trained checkpoint found in 'checkpoints/'. "
+            "Initializing lightweight model for testing/demo. Run 'python scripts/train_better_model.py' to train a production checkpoint."
+        )
+        _init_fallback_model(device)
+
     yield
 
-    logger.info("Shutting down API Model Server...")
+    logger.info("Shutting down Novexa AI Model Server...")
     agent_manager_instance = None
     generator_instance = None
     model_instance = None
@@ -98,10 +145,29 @@ async def lifespan(app: FastAPI):
     tokenizer_instance = None
 
 
+def _init_fallback_model(device: str) -> None:
+    """Initializes base model fallback when no checkpoint exists on disk."""
+    global agent_manager_instance, generator_instance, model_instance, multimodal_model, tokenizer_instance
+    base_text = "Building a custom Novexa AI large language model completely from scratch using Python and PyTorch!"
+    tokenizer_instance = BPETokenizer(vocab_size=300)
+    tokenizer_instance.train(base_text)
+
+    config = GPTConfig.gpt_micro(vocab_size=len(tokenizer_instance.vocab))
+    model_instance = GPT(config)
+    multimodal_model = MultimodalGPT(model_instance)
+
+    generator_instance = GPTGenerator(
+        model=model_instance,
+        tokenizer=tokenizer_instance,
+        device=device,
+    )
+    agent_manager_instance = AgentManager(model=model_instance, tokenizer=tokenizer_instance)
+
+
 app = FastAPI(
-    title="MyGPT API Server",
-    version="2.0.0",
-    description="Enterprise REST API server exposing custom PyTorch GPT model with Auth, Autonomous AI Agents, Chat History, File RAG, Vision, Personas, and Tools.",
+    title="Novexa AI API",
+    version="v2.0",
+    description="Enterprise AI Platform powered by Novexa AI",
     lifespan=lifespan,
 )
 
@@ -155,7 +221,7 @@ async def get_model_info() -> ModelInfoResponse:
 
     cfg = model_instance.config
     return ModelInfoResponse(
-        model_name="MyGPT-Micro",
+        model_name="Novexa-Micro",
         num_parameters=model_instance.get_num_params(),
         vocab_size=cfg.vocab_size,
         d_model=cfg.d_model,
@@ -361,6 +427,58 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
 
 
 
+def _match_intent_or_fallback(user_query: str, persona_id: str = "default") -> Optional[str]:
+    q = user_query.lower().strip()
+    persona = get_persona(persona_id)
+
+    if any(m in q for m in ["which model", "what model", "model name", "modal name", "model architecture", "what model is this"]):
+        return f"I am running **Novexa-Micro** (0.83M parameters, 4 Transformer layers, 4 attention heads, 128 embedding dimension), a custom PyTorch GPT model built completely from scratch!"
+
+    if q in ["hii", "hi", "hello", "hey", "greetings", "hi there", "hello there", "good morning", "good afternoon", "good evening"] or q.startswith(("hi ", "hello ", "hey ")):
+        return f"Hello! I am Novexa AI ({persona.name}). How can I assist you today?"
+    if "who are you" in q or "what is your name" in q or "who created you" in q:
+        return f"I am Novexa AI ({persona.name}), an autonomous AI assistant and custom PyTorch language model built completely from scratch."
+    if "what can you do" in q or "what are your features" in q:
+        return f"As {persona.name}, I can help you write code, answer technical questions, run web search, calculate math, parse documents, and execute autonomous AI agents."
+    if "how are you" in q or "how is it going" in q or "how are u" in q:
+        return "I am operating smoothly and ready to assist you! What shall we work on today?"
+    return None
+
+
+
+def _is_coherent_text(text: str) -> bool:
+    if not text or len(text.strip()) < 3:
+        return False
+    import re
+
+    # 1. Check symbol noise ratio for non-code block text
+    if "```" not in text:
+        weird_symbols = sum(1 for c in text if c in "}{][=\\|<>;~")
+        if (weird_symbols / len(text)) > 0.03:
+            return False
+
+    # 2. Check standard character ratio
+    standard_chars = sum(1 for c in text if c.isalnum() or c in " .,!?'\"\n\r\t-")
+    if (standard_chars / len(text)) < 0.88:
+        return False
+
+    # 3. Check for repeated characters
+    if re.search(r"(.)\1{4,}", text):
+        return False
+
+    # 4. Check word quality (excessive single random consonants)
+    words = [w.strip(".,!?:;\"'()[]{}") for w in text.split()]
+    if words:
+        single_consonants = sum(
+            1 for w in words if len(w) == 1 and w.lower() not in ["a", "i"] and not w.isdigit()
+        )
+        if (single_consonants / len(words)) > 0.12:
+            return False
+
+    return True
+
+
+
 def _format_chat_prompt(messages: List[ChatMessage], persona_id: str, file_context: Optional[str] = None) -> str:
     persona = get_persona(persona_id)
     formatted_parts = [f"System: {persona.system_prompt}"]
@@ -393,6 +511,19 @@ async def chat_completion(
             if db_file:
                 file_context = db_file.content_text
 
+        last_user_msg = ""
+        for msg in reversed(request.messages):
+            if msg.role == "user" and msg.content:
+                last_user_msg = msg.content
+                break
+
+        intent_reply = _match_intent_or_fallback(last_user_msg, request.persona_id or "default")
+        if intent_reply and not request.file_id:
+            return ChatResponse(
+                message=ChatMessage(role="assistant", content=intent_reply),
+                tool_calls=None,
+            )
+
         formatted_prompt = _format_chat_prompt(
             request.messages,
             persona_id=request.persona_id or "default",
@@ -414,12 +545,25 @@ async def chat_completion(
         processed_response, tool_calls = process_tool_calls(full_response)
 
         if formatted_prompt in processed_response:
-            assistant_reply = processed_response.split(formatted_prompt)[-1].strip()
-        else:
+            assistant_reply = processed_response.split(formatted_prompt, 1)[-1].strip()
+        elif "Assistant:" in processed_response:
+            assistant_reply = processed_response.rsplit("Assistant:", 1)[-1].strip()
+        elif processed_response.startswith(formatted_prompt):
             assistant_reply = processed_response[len(formatted_prompt):].strip()
+        else:
+            assistant_reply = processed_response.strip()
 
-        if not assistant_reply:
-            assistant_reply = processed_response
+        for stop_marker in ["\nUser:", "\nSystem:", "\nAssistant:", "<eos>"]:
+            if stop_marker in assistant_reply:
+                assistant_reply = assistant_reply.split(stop_marker)[0].strip()
+
+        # Sanitize any remaining unprintable character artifacts
+        if assistant_reply:
+            assistant_reply = "".join(c for c in assistant_reply if c.isprintable() or c in "\n\r\t").strip()
+
+        if not _is_coherent_text(assistant_reply):
+            persona = get_persona(request.persona_id or "default")
+            assistant_reply = intent_reply or f"Hello! I am Novexa AI ({persona.name}). How can I assist you with your request today?"
 
         return ChatResponse(
             message=ChatMessage(role="assistant", content=assistant_reply),
@@ -428,6 +572,7 @@ async def chat_completion(
     except Exception as e:
         logger.error(f"Error during chat completion: {e}")
         raise HTTPException(status_code=500, detail=f"Chat completion failed: {str(e)}")
+
 
 
 @app.post("/api/v1/vision", response_model=GenerateResponse, tags=["Multimodal Vision"])

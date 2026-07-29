@@ -97,8 +97,8 @@ export async function streamChatResponse(
   }
 
   const lastUserMessage = messages[messages.length - 1]?.content || 'Hello';
-  const fallbackText = `MyGPT Response (Offline Mode):
-I am your custom PyTorch GPT model with Personas & Tool support. I received your prompt: "${lastUserMessage}".
+  const fallbackText = `Novexa AI Response (Offline Mode):
+Hello! I am operating in offline fallback mode. Connect the FastAPI model server to start live inference. I received your prompt: "${lastUserMessage}".
 
 Active Configuration:
 • Persona ID: ${config.persona_id}

@@ -4,19 +4,19 @@ import React, { useState } from 'react';
 
 interface AgentStep {
   step_index: number;
-  thought: str;
-  action: str;
-  observation: str;
-  timestamp: str;
+  thought: string;
+  action: string;
+  observation: string;
+  timestamp: string;
 }
 
 interface AgentResult {
-  task_id: str;
-  agent_type: str;
-  goal: str;
-  status: str;
+  task_id: string;
+  agent_type: string;
+  goal: string;
+  status: string;
   steps: AgentStep[];
-  final_output: str;
+  final_output: string;
 }
 
 const AGENTS = [

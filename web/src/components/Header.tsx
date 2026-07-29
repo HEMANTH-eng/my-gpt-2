@@ -30,21 +30,22 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-20">
       {/* Brand & Logo */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1px] shadow-lg shadow-cyan-500/20">
-          <div className="w-full h-full bg-zinc-950 rounded-[11px] flex items-center justify-center font-bold text-sm text-cyan-400">
-            GPT
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#4F46E5] via-[#7C3AED] to-[#06B6D4] p-[1px] shadow-lg shadow-[#4F46E5]/30">
+          <div className="w-full h-full bg-zinc-950 rounded-[11px] flex items-center justify-center font-extrabold text-xs text-[#06B6D4]">
+            NA
           </div>
         </div>
         <div>
           <h1 className="font-semibold text-zinc-100 text-sm tracking-wide flex items-center gap-2">
-            MyGPT Studio
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-800/60">
+            Novexa AI
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#06B6D4]/10 text-[#06B6D4] border border-[#06B6D4]/30">
               v2.0 Multimodal
             </span>
           </h1>
-          <p className="text-[11px] text-zinc-400 font-mono">Enterprise Platform</p>
+          <p className="text-[11px] text-zinc-400 font-mono">Enterprise AI Platform</p>
         </div>
       </div>
+
 
       {/* Center Persona Selector */}
       {personas.length > 0 && (

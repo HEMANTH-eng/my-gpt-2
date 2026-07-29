@@ -1,10 +1,34 @@
-# Git ignore rules
+# Environments & Virtual Envs
 .venv/
+env/
+venv/
+
+# Build and distribution
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Python cache & pytest
 __pycache__/
 *.pyc
-*.pt
-*.bin
-*.log
-runs/
-checkpoints/
+*.pyo
 .pytest_cache/
+
+# Training, checkpoints, and logs
+checkpoints/
+runs/
+logs/
+*.log
+
+# Model artifacts
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+
+# Databases
+*.db
+mygpt.db

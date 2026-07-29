@@ -1,6 +1,6 @@
 import { ChatSession, Message } from '../types';
 
-const STORAGE_KEY = 'mygpt_chat_sessions_v1';
+const STORAGE_KEY = 'novexa_chat_sessions_v1';
 
 export function loadChatSessions(): ChatSession[] {
   if (typeof window === 'undefined') return [];

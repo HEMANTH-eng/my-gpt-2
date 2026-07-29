@@ -197,14 +197,15 @@ export default function Home() {
         <main className="flex-1 overflow-y-auto px-4 py-6 space-y-4 scrollbar-thin">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 max-w-md mx-auto">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 p-[1px] mb-4 shadow-xl shadow-cyan-950">
-                <div className="w-full h-full bg-zinc-950 rounded-[15px] flex items-center justify-center text-cyan-400 font-bold text-xl">
-                  GPT
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#4F46E5] via-[#7C3AED] to-[#06B6D4] p-[1px] mb-4 shadow-xl shadow-[#4F46E5]/30">
+                <div className="w-full h-full bg-zinc-950 rounded-[15px] flex items-center justify-center text-[#06B6D4] font-extrabold text-2xl">
+                  NA
                 </div>
               </div>
               <h2 className="text-lg font-semibold text-zinc-100 mb-1">
-                MyGPT Multimodal Platform
+                Novexa AI Platform
               </h2>
+
               <p className="text-xs text-zinc-400 leading-relaxed mb-6 font-mono">
                 Featuring User Accounts, File Ingestion (PDF, DOCX, TXT), Image Understanding, Voice Input/TTS, Personas, and Plugin Tools.
               </p>

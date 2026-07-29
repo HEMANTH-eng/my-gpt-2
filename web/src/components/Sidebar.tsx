@@ -127,9 +127,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 border-t border-zinc-800/60 bg-zinc-950/80">
           <div className="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/60 text-xs">
             <div className="flex items-center justify-between text-zinc-200 font-medium mb-1">
-              <span>MyGPT Architecture</span>
-              <span className="text-[10px] text-cyan-400 font-mono">0.81M</span>
+              <span>Novexa AI Architecture</span>
+              <span className="text-[10px] text-[#06B6D4] font-mono">0.83M</span>
             </div>
+
             <div className="grid grid-cols-2 gap-1 text-[11px] text-zinc-400 font-mono mt-2 pt-2 border-t border-zinc-800/40">
               <div>Layers: {modelInfo?.n_layer || 4}</div>
               <div>Heads: {modelInfo?.n_head || 4}</div>
